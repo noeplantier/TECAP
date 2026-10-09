@@ -1,0 +1,10 @@
+project_id = "tecap"
+
+[functions.validate-pass]
+verify_jwt = true
+
+[functions.expire-statuses]
+verify_jwt = false
+
+[functions.expire-statuses.schedule]
+cron = "0 * * * *"

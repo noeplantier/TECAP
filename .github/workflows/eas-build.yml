@@ -1,0 +1,30 @@
+name: EAS Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform
+        required: true
+        default: all
+        type: choice
+        options: [all, ios, android]
+  push:
+    branches: [main]
+    paths: ['apps/mobile/**', 'packages/**']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9.15.5 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile=false
+      - run: npm install --global eas-cli
+      - run: eas build --platform ${{ inputs.platform || 'all' }} --non-interactive --profile production
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

@@ -1,9 +1,16 @@
 node_modules
+.pnpm-store
+.turbo
 .expo
-.dist
+dist
+build
 coverage
 .env
 .env.*
 !.env.example
 .DS_Store
 npm-debug.log*
+*.log
+supabase/.temp
+
+*.tsbuildinfo

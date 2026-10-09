@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "TÉCAP",
+    "slug": "tecap",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "tecap",
+    "ios": { "supportsTablet": false, "bundleIdentifier": "com.tecap.app" },
+    "android": { "package": "com.tecap.app", "permissions": ["POST_NOTIFICATIONS"] },
+    "plugins": ["expo-notifications", "expo-barcode-scanner", "expo-image-picker"],
+    "extra": { "eas": { "projectId": "replace-with-eas-project-id" } }
+  }
+}

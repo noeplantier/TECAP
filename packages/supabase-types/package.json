@@ -1,0 +1,12 @@
+{
+  "name": "@tecap/supabase-types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/database.ts",
+  "types": "./src/database.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint src --ext .ts"
+  }
+}

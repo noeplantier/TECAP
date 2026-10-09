@@ -12,8 +12,31 @@ Application mobile de rencontres autour des sorties du soir : **« T’as quoi d
 
 ## Démarrage
 
+Le dépôt utilise volontairement **pnpm 9.15.5**. Vérifie la version avant toute commande :
+
 ```bash
-corepack enable
+pnpm --version
+# attendu : 9.15.5
+```
+
+Si macOS affiche une erreur `Unknown options: allow-build, dangerously-allow-all-builds`, une autre version de pnpm essaie d’installer automatiquement la version du projet avec des options incompatibles. Réinstalle directement la version attendue :
+
+```bash
+npm install --global pnpm@9.15.5
+hash -r
+pnpm --version
+```
+
+Si tu as activé une politique pnpm globale de scripts de build, supprime-la ensuite :
+
+```bash
+pnpm config delete dangerously-allow-all-builds --global || true
+pnpm config delete allow-build --global || true
+```
+
+Puis installe et démarre :
+
+```bash
 pnpm install
 cp apps/mobile/.env.example apps/mobile/.env
 pnpm typecheck

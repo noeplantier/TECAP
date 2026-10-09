@@ -9,10 +9,21 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 'latest',
     sourceType: 'module',
-    project: ['./tsconfig.base.json', './apps/mobile/tsconfig.json', './packages/shared/tsconfig.json'],
+    tsconfigRootDir: __dirname,
+    project: [
+      './tsconfig.base.json',
+      './apps/mobile/tsconfig.json',
+      './apps/admin-web/tsconfig.json',
+      './packages/shared/tsconfig.json',
+      './packages/supabase-types/tsconfig.json',
+    ],
   },
   plugins: ['@typescript-eslint', 'prettier'],
-  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'plugin:prettier/recommended'],
+  extends: [
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:prettier/recommended',
+  ],
   ignorePatterns: ['dist', 'node_modules', '.expo'],
   rules: {
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],

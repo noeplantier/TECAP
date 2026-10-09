@@ -1,205 +1,141 @@
-import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { EVENING_STATUS_TYPES, statusLabel, type EveningStatusType } from '@tecap/shared';
-import { useAppStore } from '../state/useAppStore';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { Pressable, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
+import { demoPhotos } from '../lib/demo';
+import { colors, radius, spacing } from '../theme';
 
-const people = [
-  { name: 'Léa', status: 'Concert', color: '#ff7b98' },
-  { name: 'Tom', status: 'Bar', color: '#6e8cff' },
-  { name: 'Maya', status: 'Chill', color: '#e0a5ff' },
-];
-
-export function HomeScreen() {
-  const city = useAppStore((state) => state.city);
-  const [selected, setSelected] = useState<EveningStatusType | null>(null);
-  const [venue, setVenue] = useState('');
-  const [published, setPublished] = useState(false);
-  const expires = useMemo(() => new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), []);
-
-  const publish = async () => {
-    if (!selected)
-      return Alert.alert('Choisis une ambiance', 'Dis-nous ce que tu as prévu ce soir.');
-    if (isSupabaseConfigured) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user)
-        await supabase.from('evening_statuses').upsert({
-          user_id: user.id,
-          city,
-          status_type: selected,
-          venue: venue || null,
-          expires_at: expires,
-        });
-    }
-    setPublished(true);
-    Alert.alert('C’est partagé', 'Ton statut expirera automatiquement à 4h.');
-  };
-
+type Navigation = { navigate: (screen: string) => void };
+export function HomeScreen({ navigation }: { navigation: Navigation }) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
+      <View style={styles.top}>
         <View>
-          <Text style={styles.eyebrow}>SAINT-BRIEUC · CE SOIR</Text>
-          <Text style={styles.title}>T’as quoi de prévu ?</Text>
+          <Text style={styles.wordmark}>TÉCAP</Text>
+          <Text style={styles.location}>⌖ Rennes · ce soir · 18+</Text>
         </View>
-        <View style={styles.live}>
-          <View style={styles.dot} />
-          <Text style={styles.liveText}>LIVE</Text>
+        <Text style={styles.bell}>♧</Text>
+      </View>
+      <Text style={styles.title}>T’es où ?{`\n`}On se capte.</Text>
+      <Pressable style={styles.statusCta} onPress={() => navigation.navigate('EveningStatus')}>
+        <Text style={styles.moon}>☾</Text>
+        <View style={styles.statusCopy}>
+          <Text style={styles.statusTitle}>T’as quoi de prévu ce soir ?</Text>
+          <Text style={styles.statusSub}>Ton soir, tes envies. Partage ce que tu veux.</Text>
         </View>
-      </View>
-      <Text style={styles.description}>
-        Partage ton plan, sans pression. Visible uniquement dans ta ville.
-      </Text>
-      <View style={styles.grid}>
-        {EVENING_STATUS_TYPES.map((type) => (
-          <Pressable
-            key={type}
-            onPress={() => setSelected(type)}
-            style={[styles.choice, selected === type && styles.choiceActive]}
-          >
-            <Text style={styles.choiceEmoji}>
-              {
-                (
-                  {
-                    bar: '🍸',
-                    club: '🪩',
-                    restaurant: '🍜',
-                    concert: '🎵',
-                    match: '⚽',
-                    beach: '🌊',
-                    chill: '🛋️',
-                    other: '✨',
-                  } as Record<string, string>
-                )[type]
-              }
-            </Text>
-            <Text style={[styles.choiceText, selected === type && styles.choiceTextActive]}>
-              {statusLabel[type]}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-      <TextInput
-        value={venue}
-        onChangeText={setVenue}
-        placeholder='Ajouter un lieu (optionnel)'
-        placeholderTextColor='#777784'
-        style={styles.input}
-        maxLength={120}
-      />
-      <Pressable onPress={publish} style={[styles.primary, published && styles.primaryDone]}>
-        <Text style={styles.primaryText}>
-          {published ? '✓ Statut publié' : 'Partager mon plan'}
-        </Text>
+        <Text style={styles.plus}>＋</Text>
       </Pressable>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Dans ta ville</Text>
-        <Text style={styles.count}>24 personnes actives</Text>
+      <View style={styles.filters}>
+        <Text style={[styles.filter, styles.filterOn]}>Tous</Text>
+        <Text style={styles.filter}>Bar 🍸</Text>
+        <Text style={styles.filter}>Concert 🎶</Text>
       </View>
-      {people.map((person) => (
-        <View key={person.name} style={styles.person}>
-          <View style={[styles.avatar, { backgroundColor: person.color }]}>
-            <Text style={styles.avatarText}>{person.name[0]}</Text>
-          </View>
-          <View style={styles.personCopy}>
-            <Text style={styles.personName}>{person.name}</Text>
-            <Text style={styles.personStatus}>Ce soir · {person.status}</Text>
-          </View>
-          <Pressable style={styles.wave}>
-            <Text>👋</Text>
-          </Pressable>
+      <View style={styles.sectionHead}>
+        <Text style={styles.sectionTitle}>Qui sort ce soir ?</Text>
+        <Pressable onPress={() => navigation.navigate('Map')}>
+          <Text style={styles.link}>Voir la carte ↗</Text>
+        </Pressable>
+      </View>
+      <Pressable style={styles.featureCard} onPress={() => navigation.navigate('Discover')}>
+        <Image source={{ uri: demoPhotos.lea }} style={styles.featureImage} />
+        <View style={styles.featureShade} />
+        <View style={styles.featureText}>
+          <Text style={styles.featureEyebrow}>✦ Sort ce soir — bar 🍸</Text>
+          <Text style={styles.featureName}>Léa, 24</Text>
+          <Text style={styles.featureMeta}>Centre · zone 1 km</Text>
         </View>
-      ))}
+      </Pressable>
+      <Pressable style={styles.rowCard} onPress={() => navigation.navigate('Discover')}>
+        <View style={styles.smallAvatar}>
+          <Text style={styles.avatarLetter}>L</Text>
+        </View>
+        <View style={styles.rowCopy}>
+          <Text style={styles.rowName}>Lucas, 25</Text>
+          <Text style={styles.rowMeta}>Sort ce soir — bar 🍸</Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </Pressable>
+      <Text style={styles.disclaimer}>Zones choisies · aucune position en direct.</Text>
     </ScrollView>
   );
 }
-
 const styles = StyleSheet.create({
-  container: { padding: 22, backgroundColor: '#08080b', flexGrow: 1 },
-  header: {
+  container: { backgroundColor: colors.canvas, padding: spacing.lg, paddingTop: 28, flexGrow: 1 },
+  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  wordmark: { color: colors.text, fontSize: 26, fontWeight: '900', letterSpacing: 1.4 },
+  location: { color: colors.muted, fontSize: 10, marginTop: 9 },
+  bell: { color: colors.mutedStrong, fontSize: 24 },
+  title: {
+    color: colors.text,
+    fontSize: 27,
+    lineHeight: 31,
+    fontWeight: '800',
+    marginTop: 25,
+    marginBottom: 20,
+  },
+  statusCta: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginTop: 16,
-  },
-  eyebrow: { color: '#ff4fd8', fontSize: 11, fontWeight: '800', letterSpacing: 1.3 },
-  title: { color: '#fff', fontSize: 29, fontWeight: '800', marginTop: 9 },
-  description: { color: '#9797a6', fontSize: 15, lineHeight: 22, marginVertical: 14 },
-  live: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#1c1520',
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#ff4f83' },
-  liveText: { color: '#ff9bc2', fontSize: 10, fontWeight: '800' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 9 },
-  choice: {
-    width: '22%',
-    minWidth: 69,
-    flexGrow: 1,
-    aspectRatio: 0.95,
-    backgroundColor: '#14141b',
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: 13,
     borderWidth: 1,
-    borderColor: '#252530',
+    borderColor: '#26283F',
   },
-  choiceActive: { borderColor: '#ff4fd8', backgroundColor: '#28182a' },
-  choiceEmoji: { fontSize: 25, marginBottom: 8 },
-  choiceText: { color: '#a7a7b5', fontSize: 12, fontWeight: '700' },
-  choiceTextActive: { color: '#fff' },
-  input: {
-    backgroundColor: '#14141b',
-    borderColor: '#252530',
+  moon: { color: colors.violet, fontSize: 23, marginRight: 10 },
+  statusCopy: { flex: 1 },
+  statusTitle: { color: colors.text, fontSize: 13, fontWeight: '700' },
+  statusSub: { color: colors.muted, fontSize: 10, marginTop: 5 },
+  plus: { color: colors.ivory, fontSize: 22 },
+  filters: { flexDirection: 'row', gap: 8, marginVertical: 18 },
+  filter: {
+    color: colors.mutedStrong,
+    borderColor: colors.line,
     borderWidth: 1,
-    borderRadius: 14,
-    padding: 15,
-    color: '#fff',
-    marginTop: 16,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    fontSize: 11,
   },
-  primary: {
-    backgroundColor: '#ff4fd8',
-    borderRadius: 14,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  primaryDone: { backgroundColor: '#5dd6a0' },
-  primaryText: { color: '#08080b', fontWeight: '800', fontSize: 15 },
-  sectionHeader: {
+  filterOn: { color: colors.text, borderColor: colors.ivory },
+  sectionHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 34,
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  sectionTitle: { color: '#fff', fontSize: 19, fontWeight: '800' },
-  count: { color: '#777784', fontSize: 12 },
-  person: {
+  sectionTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  link: { color: colors.muted, fontSize: 10 },
+  featureCard: {
+    height: 185,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: colors.surface,
+  },
+  featureImage: { width: '100%', height: '100%' },
+  featureShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(14,15,26,.42)' },
+  featureText: { position: 'absolute', left: 15, right: 15, bottom: 15 },
+  featureEyebrow: { color: colors.mutedStrong, fontSize: 10, marginBottom: 7 },
+  featureName: { color: colors.text, fontSize: 21, fontWeight: '800' },
+  featureMeta: { color: colors.mutedStrong, fontSize: 10, marginTop: 4 },
+  rowCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111116',
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     padding: 12,
-    marginBottom: 9,
+    marginTop: 10,
   },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
+  smallAvatar: {
+    width: 37,
+    height: 37,
+    borderRadius: 19,
+    backgroundColor: colors.violetSoft,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  avatarText: { color: '#fff', fontSize: 18, fontWeight: '800' },
-  personCopy: { flex: 1, marginLeft: 12 },
-  personName: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  personStatus: { color: '#8e8e9d', marginTop: 3, fontSize: 13 },
-  wave: { backgroundColor: '#24202a', padding: 10, borderRadius: 13 },
+  avatarLetter: { color: colors.text, fontWeight: '800' },
+  rowCopy: { flex: 1, marginLeft: 11 },
+  rowName: { color: colors.text, fontWeight: '700', fontSize: 13 },
+  rowMeta: { color: colors.muted, fontSize: 10, marginTop: 4 },
+  chevron: { color: colors.mutedStrong, fontSize: 22 },
+  disclaimer: { color: colors.muted, fontSize: 9, textAlign: 'center', marginTop: 18 },
 });

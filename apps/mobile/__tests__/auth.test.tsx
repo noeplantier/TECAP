@@ -7,7 +7,7 @@ describe('AuthScreen', () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const { getByText, getByPlaceholderText } = render(<AuthScreen />);
     fireEvent.changeText(getByPlaceholderText('ton@email.com'), 'test@example.com');
-    fireEvent.press(getByText('Commencer'));
+    fireEvent.press(getByText('Entrer dans TÉCAP'));
     expect(alertSpy).toHaveBeenCalledWith(
       'Encore une étape',
       'Entre un email valide et confirme que tu as 18 ans ou plus.',

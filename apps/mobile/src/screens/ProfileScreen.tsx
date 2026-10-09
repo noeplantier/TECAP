@@ -1,111 +1,108 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { colors, radius, spacing } from '../theme';
 import { useAppStore } from '../state/useAppStore';
+import { supabase } from '../lib/supabase';
+import { isBackendEnabled } from '../lib/runtime';
 
 export function ProfileScreen() {
   const setAuthenticated = useAppStore((state) => state.setAuthenticated);
   const city = useAppStore((state) => state.city);
   const logout = async () => {
-    if (isSupabaseConfigured) await supabase.auth.signOut();
+    if (isBackendEnabled) await supabase.auth.signOut();
     setAuthenticated(false);
   };
-  const deleteAccount = () =>
-    Alert.alert(
-      'Supprimer ton compte ?',
-      'Cette action est irréversible. Utilise les réglages du compte pour confirmer.',
-      [{ text: 'Annuler' }, { text: 'Contacter TÉCAP', onPress: () => undefined }],
-    );
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.eyebrow}>MON PROFIL</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Mon profil</Text>
+        <Text style={styles.more}>•••</Text>
+      </View>
       <View style={styles.profile}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>N</Text>
+          <Text style={styles.avatarText}>M</Text>
         </View>
-        <View>
-          <Text style={styles.name}>Noé</Text>
-          <Text style={styles.city}>📍 {city}</Text>
-        </View>
-        <Pressable style={styles.edit}>
-          <Text style={styles.editText}>Modifier</Text>
-        </Pressable>
+        <Text style={styles.name}>Manon, 25</Text>
+        <Text style={styles.location}>⌖ {city}</Text>
       </View>
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Tes préférences</Text>
-        <View style={styles.row}>
-          <Text style={styles.label}>Ville</Text>
-          <Text style={styles.value}>{city}</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Notifications à 18h</Text>
-          <Text style={styles.valueOn}>Activées</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Visibilité du statut</Text>
-          <Text style={styles.value}>Ma ville uniquement</Text>
-        </View>
+        <Text style={styles.cardTitle}>Ce que tu partages</Text>
+        <Text style={styles.cardText}>
+          Statuts volontaires, jamais de géolocalisation automatique. Tu gardes le contrôle.
+        </Text>
       </View>
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Confidentialité</Text>
-        <Text style={styles.privacy}>
-          TÉCAP ne suit pas ta position en arrière-plan. Les photos sont stockées en privé et les
-          liens expirent.
-        </Text>
-        <Pressable onPress={deleteAccount}>
-          <Text style={styles.danger}>Demander la suppression du compte</Text>
-        </Pressable>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Notifications à 18h</Text>
+          <Text style={styles.on}>Activées</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Visibilité du statut</Text>
+          <Text style={styles.value}>Ma ville uniquement</Text>
+        </View>
       </View>
       <Pressable onPress={logout} style={styles.logout}>
         <Text style={styles.logoutText}>Se déconnecter</Text>
       </Pressable>
+      <Pressable
+        onPress={() =>
+          Alert.alert(
+            'Suppression du compte',
+            'La demande sera traitée depuis les réglages Supabase.',
+          )
+        }
+      >
+        <Text style={styles.danger}>Demander la suppression du compte</Text>
+      </Pressable>
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: '#08080b', padding: 22 },
-  eyebrow: { color: '#ff4fd8', fontSize: 11, fontWeight: '800', letterSpacing: 1.3, marginTop: 16 },
-  profile: { flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 25 },
+  container: { flexGrow: 1, backgroundColor: colors.canvas, padding: spacing.lg, paddingTop: 28 },
+  header: { flexDirection: 'row', justifyContent: 'space-between' },
+  title: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  more: { color: colors.mutedStrong, fontSize: 18 },
+  profile: { alignItems: 'center', marginVertical: 30 },
   avatar: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#6b25a8',
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: colors.violetSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { color: '#fff', fontSize: 28, fontWeight: '900' },
-  name: { color: '#fff', fontSize: 22, fontWeight: '800', marginLeft: 15 },
-  city: { color: '#a4a4b0', marginLeft: 15, marginTop: 4 },
-  edit: {
-    marginLeft: 'auto',
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderColor: '#383844',
-    borderWidth: 1,
-  },
-  editText: { color: '#c4c4cf', fontSize: 12, fontWeight: '700' },
+  avatarText: { color: colors.text, fontSize: 32, fontWeight: '800' },
+  name: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 14 },
+  location: { color: colors.muted, fontSize: 12, marginTop: 5 },
   card: {
-    backgroundColor: '#15151c',
-    borderRadius: 17,
-    padding: 18,
-    marginBottom: 14,
-    borderColor: '#292936',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    marginBottom: 12,
     borderWidth: 1,
+    borderColor: colors.line,
   },
-  cardTitle: { color: '#fff', fontSize: 16, fontWeight: '800', marginBottom: 15 },
+  cardTitle: { color: colors.text, fontWeight: '800', fontSize: 15, marginBottom: 10 },
+  cardText: { color: colors.muted, fontSize: 13, lineHeight: 20 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderTopColor: '#292936',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderTopColor: colors.line,
     borderTopWidth: 1,
   },
-  label: { color: '#9999a7', fontSize: 13 },
-  value: { color: '#fff', fontSize: 13 },
-  valueOn: { color: '#6ee0a6', fontSize: 13, fontWeight: '700' },
-  privacy: { color: '#9a9aa8', fontSize: 13, lineHeight: 20 },
-  danger: { color: '#ff879c', fontSize: 13, fontWeight: '700', marginTop: 18 },
-  logout: { alignItems: 'center', padding: 15, marginTop: 6 },
-  logoutText: { color: '#ff4fd8', fontWeight: '800' },
+  rowLabel: { color: colors.mutedStrong, fontSize: 13 },
+  on: { color: colors.green, fontSize: 12, fontWeight: '700' },
+  value: { color: colors.text, fontSize: 12 },
+  logout: {
+    backgroundColor: colors.ivory,
+    borderRadius: radius.pill,
+    padding: 15,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  logoutText: { color: colors.ivoryText, fontWeight: '800' },
+  danger: { color: colors.danger, fontSize: 12, textAlign: 'center', marginTop: 18 },
 });

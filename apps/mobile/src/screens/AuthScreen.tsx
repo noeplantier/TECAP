@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
+import { isBackendEnabled } from '../lib/runtime';
 import { useAppStore } from '../state/useAppStore';
+import { colors, radius, spacing } from '../theme';
 
 export function AuthScreen() {
   const [email, setEmail] = useState('');
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const setAuthenticated = useAppStore((state) => state.setAuthenticated);
-  const setAccepted18Plus = useAppStore((state) => state.setAccepted18Plus);
-
   const continueWithEmail = async () => {
     if (!email.includes('@') || !accepted) {
       Alert.alert(
@@ -19,100 +19,93 @@ export function AuthScreen() {
       return;
     }
     setLoading(true);
-    if (isSupabaseConfigured) {
+    if (isBackendEnabled) {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: { shouldCreateUser: true },
       });
       setLoading(false);
       if (error) return Alert.alert('Connexion impossible', error.message);
-      Alert.alert(
-        'Code envoyé',
-        'Vérifie ta boîte mail puis relance l’application pour continuer.',
-      );
+      Alert.alert('Code envoyé', 'Vérifie ta boîte mail pour continuer.');
       return;
     }
     setLoading(false);
-    setAccepted18Plus(true);
     setAuthenticated(true);
   };
-
   return (
     <View style={styles.container}>
-      <View style={styles.brand}>
-        <Text style={styles.logo}>TÉCAP</Text>
-        <Text style={styles.pill}>18+</Text>
-      </View>
-      <Text style={styles.title}>Ce soir, tu fais quoi ?</Text>
-      <Text style={styles.subtitle}>
-        Rencontre les personnes qui sortent au même endroit que toi.
-      </Text>
+      <Text style={styles.wordmark}>TÉCAP</Text>
+      <Text style={styles.kicker}>RENCONTRES · SORTIES · IRL</Text>
+      <Text style={styles.title}>Ton soir ?{`\n`}On se capte.</Text>
+      <Text style={styles.subtitle}>Ta ville, tes envies, les bonnes personnes au bon moment.</Text>
       <TextInput
         testID='email-input'
         autoCapitalize='none'
         keyboardType='email-address'
         placeholder='ton@email.com'
-        placeholderTextColor='#777784'
+        placeholderTextColor={colors.muted}
         value={email}
         onChangeText={setEmail}
         style={styles.input}
       />
       <Pressable
         onPress={() => setAccepted((value) => !value)}
-        style={styles.checkboxRow}
+        style={styles.checkRow}
         accessibilityRole='checkbox'
         accessibilityState={{ checked: accepted }}
       >
-        <View style={[styles.checkbox, accepted && styles.checkboxChecked]}>
-          {accepted ? <Text style={styles.check}>✓</Text> : null}
+        <View style={[styles.checkbox, accepted && styles.checkboxOn]}>
+          {accepted && <Text style={styles.check}>✓</Text>}
         </View>
         <Text style={styles.legal}>J’ai 18 ans ou plus et j’accepte les CGU.</Text>
       </Pressable>
       <Pressable disabled={loading} onPress={continueWithEmail} style={styles.button}>
-        <Text style={styles.buttonText}>{loading ? 'Un instant…' : 'Commencer'}</Text>
+        <Text style={styles.buttonText}>{loading ? 'Un instant…' : 'Entrer dans TÉCAP'}</Text>
       </Pressable>
-      <Text style={styles.note}>Pas de GPS automatique. Tu choisis ce que tu partages.</Text>
+      <Text style={styles.note}>
+        Tu choisis toujours ce que tu partages. Aucun GPS automatique.
+      </Text>
     </View>
   );
 }
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#08080b', padding: 24, justifyContent: 'center' },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 42 },
-  logo: { color: '#fff', fontSize: 32, fontWeight: '900', letterSpacing: 2 },
-  pill: {
-    backgroundColor: '#ff4fd8',
-    color: '#08080b',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    fontWeight: '800',
-  },
-  title: { color: '#fff', fontSize: 32, fontWeight: '800', lineHeight: 38 },
-  subtitle: { color: '#a7a7b5', fontSize: 16, lineHeight: 24, marginTop: 12, marginBottom: 30 },
-  input: {
-    backgroundColor: '#15151c',
-    color: '#fff',
-    borderRadius: 14,
-    padding: 17,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#292936',
-  },
-  checkboxRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 10 },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    borderWidth: 1,
-    borderColor: '#555565',
-    alignItems: 'center',
+  container: {
+    flex: 1,
+    backgroundColor: colors.canvas,
+    padding: spacing.xl,
     justifyContent: 'center',
   },
-  checkboxChecked: { backgroundColor: '#ff4fd8', borderColor: '#ff4fd8' },
-  check: { color: '#08080b', fontWeight: '900' },
-  legal: { color: '#bdbdc8', flex: 1 },
-  button: { backgroundColor: '#ff4fd8', padding: 17, borderRadius: 14, alignItems: 'center' },
-  buttonText: { color: '#08080b', fontSize: 16, fontWeight: '800' },
-  note: { color: '#777784', textAlign: 'center', marginTop: 22, fontSize: 12 },
+  wordmark: { color: colors.text, fontSize: 34, fontWeight: '900', letterSpacing: 3 },
+  kicker: {
+    color: colors.violet,
+    fontSize: 10,
+    letterSpacing: 1.6,
+    fontWeight: '800',
+    marginTop: 8,
+    marginBottom: 58,
+  },
+  title: { color: colors.text, fontSize: 36, lineHeight: 40, fontWeight: '800' },
+  subtitle: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 14, marginBottom: 30 },
+  input: {
+    backgroundColor: colors.surface,
+    color: colors.text,
+    borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: 16,
+    fontSize: 16,
+  },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 20 },
+  checkbox: { width: 22, height: 22, borderRadius: 7, borderWidth: 1, borderColor: colors.muted },
+  checkboxOn: { backgroundColor: colors.ivory, borderColor: colors.ivory },
+  check: { color: colors.ivoryText, textAlign: 'center', fontWeight: '900' },
+  legal: { color: colors.mutedStrong, flex: 1, fontSize: 13 },
+  button: {
+    backgroundColor: colors.ivory,
+    borderRadius: radius.pill,
+    padding: 16,
+    alignItems: 'center',
+  },
+  buttonText: { color: colors.ivoryText, fontWeight: '800' },
+  note: { color: colors.muted, textAlign: 'center', fontSize: 11, lineHeight: 17, marginTop: 22 },
 });

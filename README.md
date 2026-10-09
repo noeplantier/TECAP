@@ -15,14 +15,18 @@ Application mobile de rencontres autour des sorties du soir : **« T’as quoi d
 ```bash
 corepack enable
 pnpm install
-cp .env.example .env
+cp apps/mobile/.env.example apps/mobile/.env
 pnpm typecheck
 pnpm test
 pnpm --filter @tecap/mobile start
 pnpm --filter @tecap/admin-web dev
 ```
 
-Le mode local affiche une expérience utilisable avec des données de démonstration si Supabase n’est pas configuré. Pour activer le backend, renseigner `EXPO_PUBLIC_SUPABASE_URL` et `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+Le mode local affiche une expérience utilisable avec des données de démonstration si `EXPO_PUBLIC_USE_SUPABASE=false` ou si Supabase n’est pas configuré. Pour activer le backend mobile, renseigner `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` et passer `EXPO_PUBLIC_USE_SUPABASE=true`.
+
+**Important :** ne copie pas le `.env.example` racine dans `apps/mobile/.env`. Le fichier racine documente aussi des secrets serveur et CI. Utilise `apps/mobile/.env.example` pour Expo et `apps/admin-web/.env.example` pour le dashboard. Ne mets jamais `EXPO_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `SENTRY_AUTH_TOKEN` ou `ONESIGNAL_REST_API_KEY` dans l’environnement mobile.
+
+Si Expo affiche `ApiV2Error: The bearer token is invalid`, supprime `EXPO_TOKEN` de `apps/mobile/.env` ou lance `unset EXPO_TOKEN` dans le terminal avant `pnpm --filter @tecap/mobile start`. `EXPO_TOKEN` doit uniquement exister dans les secrets GitHub Actions/EAS.
 
 ## Backend Supabase
 
@@ -39,7 +43,9 @@ Les tables sensibles ont des policies RLS par utilisateur, événement et rôle.
 
 ## Variables d’environnement
 
-Voir `.env.example`. Les variables `EXPO_PUBLIC_*` et `VITE_*` sont publiques par nature ; les secrets serveur restent dans Supabase Vault, les secrets EAS ou les variables CI.
+Les variables mobiles publiques sont dans `apps/mobile/.env.example`. Les variables du dashboard sont dans `apps/admin-web/.env.example`. Le `.env.example` racine sert de catalogue CI/backend et ne doit pas être copié tel quel dans une application.
+
+Les variables `EXPO_PUBLIC_*` et `VITE_*` sont publiques par nature ; les secrets serveur restent dans Supabase Vault, les secrets EAS ou les variables CI.
 
 ## Commandes
 

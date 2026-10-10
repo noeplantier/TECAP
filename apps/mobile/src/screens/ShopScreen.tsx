@@ -101,6 +101,7 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
           <Text style={styles.subtitle}>{copy.subtitle}</Text>
         </View>
       </View>
+      {mode === 'premium' && <PremiumComparison />}
       <View style={styles.featureCard}>
         {features.map((feature) => (
           <View key={feature.title} style={styles.featureRow}>
@@ -136,6 +137,35 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
       )}
       <Text style={styles.secure}>▣ Paiement sécurisé · Achat unique · Annulation possible</Text>
     </ScrollView>
+  );
+}
+
+function PremiumComparison() {
+  return (
+    <View style={styles.comparison}>
+      <View style={styles.comparisonHead}>
+        <Text style={styles.comparisonTitle}>TÉCAP Premium</Text>
+        <Text style={styles.comparisonBadge}>LE PLUS POPULAIRE</Text>
+      </View>
+      <Text style={styles.comparisonSubtitle}>L’expérience complète pour tes soirées.</Text>
+      <View style={styles.comparisonColumns}>
+        <View style={styles.comparisonColumn}>
+          <Text style={styles.comparisonColumnTitle}>Gratuit</Text>
+          <Text style={styles.comparisonValue}>30</Text>
+          <Text style={styles.comparisonUnit}>LIKES / JOUR</Text>
+          <Text style={styles.comparisonMuted}>Swipe et match</Text>
+          <Text style={styles.comparisonMuted}>Événements publics</Text>
+        </View>
+        <View style={[styles.comparisonColumn, styles.comparisonPremium]}>
+          <Text style={styles.comparisonColumnTitle}>♛ Premium</Text>
+          <Text style={styles.comparisonValue}>∞</Text>
+          <Text style={styles.comparisonUnit}>LIKES ILLIMITÉS</Text>
+          <Text style={styles.comparisonFeature}>Voir qui sort ce soir</Text>
+          <Text style={styles.comparisonFeature}>Filtres avancés</Text>
+          <Text style={styles.comparisonFeature}>Boosts inclus</Text>
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -263,6 +293,41 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 29, lineHeight: 32, fontWeight: '900' },
   titleAccent: { color: colors.pink },
   subtitle: { color: colors.text, fontSize: 12, lineHeight: 18, marginTop: 10 },
+  comparison: {
+    backgroundColor: colors.surface,
+    borderColor: colors.goldSoft,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: 15,
+    marginTop: 10,
+  },
+  comparisonHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  comparisonTitle: { color: colors.gold, fontSize: 16, fontWeight: '900' },
+  comparisonBadge: {
+    color: colors.ivoryText,
+    backgroundColor: colors.gold,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    fontSize: 8,
+    fontWeight: '900',
+  },
+  comparisonSubtitle: { color: colors.mutedStrong, fontSize: 10, marginTop: 4 },
+  comparisonColumns: { flexDirection: 'row', gap: 8, marginTop: 13 },
+  comparisonColumn: {
+    flex: 1,
+    backgroundColor: colors.canvas,
+    borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: 11,
+  },
+  comparisonPremium: { borderColor: colors.gold, backgroundColor: 'rgba(255,211,106,.08)' },
+  comparisonColumnTitle: { color: colors.text, fontSize: 12, fontWeight: '800' },
+  comparisonValue: { color: colors.pink, fontSize: 28, fontWeight: '900', marginTop: 7 },
+  comparisonUnit: { color: colors.text, fontSize: 9, fontWeight: '900', marginTop: -3 },
+  comparisonMuted: { color: colors.muted, fontSize: 9, marginTop: 10 },
+  comparisonFeature: { color: colors.gold, fontSize: 9, marginTop: 10 },
   featureCard: {
     backgroundColor: 'rgba(13,12,23,.94)',
     borderColor: colors.line,

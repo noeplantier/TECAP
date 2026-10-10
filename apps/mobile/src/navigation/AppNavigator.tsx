@@ -15,6 +15,7 @@ import { PassScreen } from '../screens/PassScreen';
 import { EventsScreen } from '../screens/EventsScreen';
 import { ShopScreen } from '../screens/ShopScreen';
 import { InvitationFlowScreen } from '../screens/InvitationFlowScreen';
+import { IncomingRequestScreen } from '../screens/IncomingRequestScreen';
 import { useAppStore } from '../state/useAppStore';
 
 const Stack = createNativeStackNavigator();
@@ -46,12 +47,12 @@ function TecapTabBar({ state, navigation }: { state: TabBarState; navigation: Ta
     <View style={styles.tabBar}>
       {state.routes.map((route, index) => {
         const active = state.index === index;
-        const item = tabItems[route.name] ?? tabItems.Home!;
+        const item = tabItems[route.name] ?? tabItems.Discover!;
         return (
           <Pressable
             key={route.key}
             onPress={() => navigation.navigate(route.name)}
-            style={styles.tab}
+            style={[styles.tab, active && styles.tabActive]}
           >
             <Text style={[styles.tabIcon, active && styles.tabIconActive]}>{item.icon}</Text>
             <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{item.label}</Text>
@@ -97,6 +98,7 @@ export function AppNavigator() {
             <Stack.Screen name='Night' component={NightScreen} />
             <Stack.Screen name='Pass' component={PassScreen} />
             <Stack.Screen name='Invitation' component={InvitationFlowScreen} />
+            <Stack.Screen name='IncomingRequest' component={IncomingRequestScreen} />
           </>
         )}
       </Stack.Navigator>
@@ -107,16 +109,25 @@ export function AppNavigator() {
 const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#0E0F1A',
+    backgroundColor: '#05050B',
     borderTopWidth: 1,
-    borderTopColor: '#24263B',
-    height: 72,
-    paddingBottom: 10,
-    paddingTop: 8,
+    borderTopColor: '#2C1C38',
+    height: 78,
+    paddingHorizontal: 5,
+    paddingBottom: 11,
+    paddingTop: 7,
   },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    borderRadius: 15,
+    marginHorizontal: 2,
+  },
+  tabActive: { borderColor: '#9E356F', borderWidth: 1, backgroundColor: 'rgba(255,46,173,.08)' },
   tabIcon: { color: '#77798D', fontSize: 21 },
-  tabIconActive: { color: '#F0D5B6' },
+  tabIconActive: { color: '#FFD36A' },
   tabLabel: { color: '#77798D', fontSize: 10 },
-  tabLabelActive: { color: '#F0D5B6', fontWeight: '700' },
+  tabLabelActive: { color: '#FFD36A', fontWeight: '700' },
 });

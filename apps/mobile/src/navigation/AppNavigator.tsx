@@ -12,6 +12,9 @@ import { EveningStatusScreen } from '../screens/EveningStatusScreen';
 import { MapScreen } from '../screens/MapScreen';
 import { NightScreen } from '../screens/NightScreen';
 import { PassScreen } from '../screens/PassScreen';
+import { EventsScreen } from '../screens/EventsScreen';
+import { ShopScreen } from '../screens/ShopScreen';
+import { InvitationFlowScreen } from '../screens/InvitationFlowScreen';
 import { useAppStore } from '../state/useAppStore';
 
 const Stack = createNativeStackNavigator();
@@ -28,10 +31,11 @@ const theme = {
   },
 };
 const tabItems: Record<string, { icon: string; label: string }> = {
-  Home: { icon: '⌂', label: 'Accueil' },
   Discover: { icon: '◉', label: 'Découvrir' },
+  Events: { icon: '⌖', label: 'Sorties' },
   Messages: { icon: '⌁', label: 'Messages' },
   Profile: { icon: '♙', label: 'Profil' },
+  Shop: { icon: '♛', label: 'Boutique' },
 };
 
 type TabBarState = { index: number; routes: Array<{ key: string; name: string }> };
@@ -61,13 +65,15 @@ function TecapTabBar({ state, navigation }: { state: TabBarState; navigation: Ta
 function MainTabs() {
   return (
     <Tabs.Navigator
+      initialRouteName='Discover'
       tabBar={(props) => <TecapTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen name='Home' component={HomeScreen} />
       <Tabs.Screen name='Discover' component={DiscoverScreen} />
+      <Tabs.Screen name='Events' component={EventsScreen} />
       <Tabs.Screen name='Messages' component={ChatScreen} />
       <Tabs.Screen name='Profile' component={ProfileScreen} />
+      <Tabs.Screen name='Shop' component={ShopScreen} />
     </Tabs.Navigator>
   );
 }
@@ -82,12 +88,15 @@ export function AppNavigator() {
         ) : (
           <>
             <Stack.Screen name='Main' component={MainTabs} />
+            <Stack.Screen name='Home' component={HomeScreen} />
+            <Stack.Screen name='Shop' component={ShopScreen} />
             <Stack.Screen name='Match' component={MatchScreen} />
             <Stack.Screen name='Chat' component={ChatScreen} />
             <Stack.Screen name='EveningStatus' component={EveningStatusScreen} />
             <Stack.Screen name='Map' component={MapScreen} />
             <Stack.Screen name='Night' component={NightScreen} />
             <Stack.Screen name='Pass' component={PassScreen} />
+            <Stack.Screen name='Invitation' component={InvitationFlowScreen} />
           </>
         )}
       </Stack.Navigator>

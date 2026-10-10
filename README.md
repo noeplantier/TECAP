@@ -88,6 +88,19 @@ Les variables `EXPO_PUBLIC_*` et `VITE_*` sont publiques par nature ; les secret
 
 Préinscription virale → compte → statut du soir → inscription TÉCAP Night → pass QR → scan partenaire server-side → second scan refusé. Le client reste volontairement sans tracking GPS automatique : la ville et le lieu de sortie sont saisis par l’utilisateur.
 
+## Expérience premium locale
+
+La branche mobile contient maintenant une expérience Boutique alignée sur les nouvelles maquettes néon :
+
+- onglets `Découvrir`, `Sorties`, `Messages`, `Profil`, `Boutique` ;
+- offres `Invitation spéciale`, `TÉCAP Premium` et `Boost` avec sélection d’offre et CTA ;
+- parcours local en trois étapes `On se capte ce soir ?` → détail → match → conversation ;
+- écran Sorties avec intentions volontaires, carte illustrative, lieux et TÉCAP Night ;
+- état Zustand local pour l’abonnement, les crédits d’invitation et les boosts ;
+- adaptateur `apps/mobile/src/lib/commerce.ts` remplaçable par RevenueCat ou un flux Supabase Edge Function.
+
+Les boutons d’achat sont volontairement en **mode démo** : aucun paiement réel n’est déclenché. Le futur branchement devra ajouter la vérification serveur, les reçus App Store/Google Play, l’idempotence et la synchronisation de l’entitlement avant de rendre les offres payantes disponibles.
+
 ## RGPD et sécurité
 
 - Confirmation 18+ et consentements séparés.

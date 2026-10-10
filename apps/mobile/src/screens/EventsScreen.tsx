@@ -1,1 +1,1 @@
-export { NightScreen as EventsScreen } from './NightScreen';
+export { EventsHubScreen as EventsScreen } from './EventsHubScreen';

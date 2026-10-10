@@ -34,6 +34,16 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
         <Text style={styles.eyebrow}>DÉCOUVRIR</Text>
         <Text style={styles.shield}>♢</Text>
       </View>
+      <Pressable onPress={() => navigation.navigate('Invitation')} style={styles.specialInvite}>
+        <Text style={styles.specialIcon}>♡</Text>
+        <View style={styles.specialCopy}>
+          <Text style={styles.specialTitle}>On se capte ce soir ?</Text>
+          <Text style={styles.specialBody}>
+            Envoie une invitation spéciale au profil qui te plaît.
+          </Text>
+        </View>
+        <Text style={styles.specialArrow}>›</Text>
+      </Pressable>
       <Animated.View style={[styles.card, cardStyle]}>
         <Image source={{ uri: current.photo }} style={styles.photo} />
         <View style={styles.photoShade} />
@@ -80,6 +90,21 @@ const styles = StyleSheet.create({
   back: { color: colors.text, fontSize: 29 },
   eyebrow: { color: colors.mutedStrong, fontSize: 10, letterSpacing: 1.4, fontWeight: '800' },
   shield: { color: colors.mutedStrong, fontSize: 23 },
+  specialInvite: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,46,173,.1)',
+    borderColor: colors.pinkSoft,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: 10,
+    marginBottom: 12,
+  },
+  specialIcon: { color: colors.pink, fontSize: 24, marginRight: 9 },
+  specialCopy: { flex: 1 },
+  specialTitle: { color: colors.text, fontSize: 12, fontWeight: '800' },
+  specialBody: { color: colors.muted, fontSize: 9, marginTop: 3 },
+  specialArrow: { color: colors.pink, fontSize: 23 },
   card: {
     flex: 1,
     maxHeight: 565,

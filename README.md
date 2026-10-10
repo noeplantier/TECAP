@@ -12,17 +12,46 @@ Application mobile de rencontres autour des sorties du soir : **« T’as quoi d
 
 ## Démarrage
 
+Le dépôt utilise volontairement **pnpm 9.15.5**. Vérifie la version avant toute commande :
+
 ```bash
-corepack enable
+pnpm --version
+# attendu : 9.15.5
+```
+
+Si macOS affiche une erreur `Unknown options: allow-build, dangerously-allow-all-builds`, une autre version de pnpm essaie d’installer automatiquement la version du projet avec des options incompatibles. Réinstalle directement la version attendue :
+
+```bash
+npm install --global pnpm@9.15.5
+hash -r
+pnpm --version
+```
+
+Si tu as activé une politique pnpm globale de scripts de build, supprime-la ensuite :
+
+```bash
+pnpm config delete dangerously-allow-all-builds --global || true
+pnpm config delete allow-build --global || true
+```
+
+Puis installe et démarre :
+
+```bash
 pnpm install
-cp .env.example .env
+cp apps/mobile/.env.example apps/mobile/.env
 pnpm typecheck
 pnpm test
 pnpm --filter @tecap/mobile start
 pnpm --filter @tecap/admin-web dev
 ```
 
-Le mode local affiche une expérience utilisable avec des données de démonstration si Supabase n’est pas configuré. Pour activer le backend, renseigner `EXPO_PUBLIC_SUPABASE_URL` et `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+Le mode local affiche une expérience utilisable avec des données de démonstration si `EXPO_PUBLIC_USE_SUPABASE=false` ou si Supabase n’est pas configuré. Pour activer le backend mobile, renseigner `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` et passer `EXPO_PUBLIC_USE_SUPABASE=true`.
+
+**Important :** ne copie pas le `.env.example` racine dans `apps/mobile/.env`. Le fichier racine documente aussi des secrets serveur et CI. Utilise `apps/mobile/.env.example` pour Expo et `apps/admin-web/.env.example` pour le dashboard. Ne mets jamais `EXPO_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `SENTRY_AUTH_TOKEN` ou `ONESIGNAL_REST_API_KEY` dans l’environnement mobile.
+
+Si Expo affiche `ApiV2Error: The bearer token is invalid`, supprime `EXPO_TOKEN` de `apps/mobile/.env` ou lance `unset EXPO_TOKEN` dans le terminal avant `pnpm --filter @tecap/mobile start`. `EXPO_TOKEN` doit uniquement exister dans les secrets GitHub Actions/EAS.
+
+Si le bundler affiche `Unable to resolve "../../App" from .../expo/AppEntry.js`, récupère la dernière version de la branche. L’application utilise un point d’entrée local `apps/mobile/index.js` (`main: "./index.js"`) afin d’éviter l’import relatif d’Expo qui peut casser avec les liens symboliques pnpm.
 
 ## Backend Supabase
 
@@ -39,7 +68,9 @@ Les tables sensibles ont des policies RLS par utilisateur, événement et rôle.
 
 ## Variables d’environnement
 
-Voir `.env.example`. Les variables `EXPO_PUBLIC_*` et `VITE_*` sont publiques par nature ; les secrets serveur restent dans Supabase Vault, les secrets EAS ou les variables CI.
+Les variables mobiles publiques sont dans `apps/mobile/.env.example`. Les variables du dashboard sont dans `apps/admin-web/.env.example`. Le `.env.example` racine sert de catalogue CI/backend et ne doit pas être copié tel quel dans une application.
+
+Les variables `EXPO_PUBLIC_*` et `VITE_*` sont publiques par nature ; les secrets serveur restent dans Supabase Vault, les secrets EAS ou les variables CI.
 
 ## Commandes
 
@@ -56,6 +87,19 @@ Voir `.env.example`. Les variables `EXPO_PUBLIC_*` et `VITE_*` sont publiques pa
 ## Flux P0 couvert
 
 Préinscription virale → compte → statut du soir → inscription TÉCAP Night → pass QR → scan partenaire server-side → second scan refusé. Le client reste volontairement sans tracking GPS automatique : la ville et le lieu de sortie sont saisis par l’utilisateur.
+
+## Expérience premium locale
+
+La branche mobile contient maintenant une expérience Boutique alignée sur les nouvelles maquettes néon :
+
+- onglets `Découvrir`, `Sorties`, `Messages`, `Profil`, `Boutique` ;
+- offres `Invitation spéciale`, `TÉCAP Premium` et `Boost` avec sélection d’offre et CTA ;
+- parcours local en trois étapes `On se capte ce soir ?` → détail → match → conversation ;
+- écran Sorties avec intentions volontaires, carte illustrative, lieux et TÉCAP Night ;
+- état Zustand local pour l’abonnement, les crédits d’invitation et les boosts ;
+- adaptateur `apps/mobile/src/lib/commerce.ts` remplaçable par RevenueCat ou un flux Supabase Edge Function.
+
+Les boutons d’achat sont volontairement en **mode démo** : aucun paiement réel n’est déclenché. Le futur branchement devra ajouter la vérification serveur, les reçus App Store/Google Play, l’idempotence et la synchronisation de l’entitlement avant de rendre les offres payantes disponibles.
 
 ## RGPD et sécurité
 

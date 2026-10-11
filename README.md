@@ -66,6 +66,29 @@ supabase functions deploy expire-statuses
 
 Les tables sensibles ont des policies RLS par utilisateur, événement et rôle. La clé `service_role` ne doit jamais être embarquée dans une app.
 
+### Projet de développement connecté
+
+Le dépôt a été vérifié et déployé sur le projet Supabase TÉCAP de développement :
+
+- référence : `bzijrulrqhnwycgmhcti` ;
+- région : `ca-central-1` ;
+- migrations appliquées : `init_p0`, `social_mvp` ;
+- tables publiques : RLS activée sur toutes les tables créées ;
+- Edge Functions actives : `validate-pass` et `expire-statuses`, toutes deux avec JWT obligatoire ;
+- types TypeScript du package `@tecap/supabase-types` synchronisés avec le schéma distant.
+
+Le projet ne possède actuellement **aucun scheduler distant `pg_cron` actif**. La configuration versionnée conserve le cron horaire attendu, mais l’exécution de `expire-statuses` doit encore être branchée via un scheduler autorisé (Supabase Cron, GitHub Actions ou autre) avec le secret serveur configuré dans Supabase Vault/EAS/CI, jamais dans l’application mobile.
+
+Pour activer le client mobile réel, renseigne uniquement les variables publiques dans `apps/mobile/.env` :
+
+```bash
+EXPO_PUBLIC_USE_SUPABASE=true
+EXPO_PUBLIC_SUPABASE_URL=https://bzijrulrqhnwycgmhcti.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<clé publishable/anon récupérée dans Supabase>
+```
+
+Le mode démo reste disponible si `EXPO_PUBLIC_USE_SUPABASE=false` ou si les clés sont absentes.
+
 ## Variables d’environnement
 
 Les variables mobiles publiques sont dans `apps/mobile/.env.example`. Les variables du dashboard sont dans `apps/admin-web/.env.example`. Le `.env.example` racine sert de catalogue CI/backend et ne doit pas être copié tel quel dans une application.

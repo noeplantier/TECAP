@@ -89,6 +89,36 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=<clé publishable/anon récupérée dans Supabase>
 
 Le mode démo reste disponible si `EXPO_PUBLIC_USE_SUPABASE=false` ou si les clés sont absentes.
 
+### Seed développement idempotent
+
+Le seed serveur est dans `supabase/seed/`. Il utilise des emails fictifs `example.test`, des UUID métier déterministes et des `upsert` ciblés. Il ne contient aucun mot de passe ni clé réelle et ne supprime jamais une donnée hors du périmètre `tecap.demo+*@example.test`.
+
+Le schéma actuel ne contient ni `is_demo_data` ni `seed_registry`, mais l’idempotence est assurée par les emails Auth de démonstration, les IDs stables des événements/relations et les contraintes métier existantes. Les 30 profils secondaires, Alex, Alex Limite, TÉCAP Admin et Staff TÉCAP Night sont créés comme vrais utilisateurs Auth par le script serveur, avec e-mail automatiquement confirmé.
+
+Prépare un shell serveur local ou un secret manager à partir de [`.env.demo.example`](.env.demo.example), sans jamais ajouter de valeur dans Git :
+
+```bash
+export SUPABASE_PROJECT_REF=bzijrulrqhnwycgmhcti
+export SUPABASE_URL=https://bzijrulrqhnwycgmhcti.supabase.co
+export SUPABASE_SERVICE_ROLE_KEY='<valeur fournie par le gestionnaire de secrets>'
+export TECAP_DEMO_PASSWORD='<mot de passe de démo temporaire, 12 caractères minimum>'
+
+pnpm seed:development
+pnpm verify:seed
+```
+
+Commandes disponibles :
+
+```bash
+pnpm seed:development # crée ou met à jour les comptes et fixtures de démo
+pnpm verify:seed       # vérifie les volumes minimums du seed
+pnpm seed:reset-demo   # supprime uniquement les données tecap.demo+*@example.test
+```
+
+Le seed prépare notamment 34 profils (Alex, 30 profils secondaires, Alex Limite, TÉCAP Admin et Staff TÉCAP Night), 16 matches, conversations, messages, statuts actifs/expirés, demandes, notifications, achats de démonstration, boosts, deux événements TÉCAP Night, participants, pass QR, préinscriptions, blocage et signalement fictifs. Les colonnes absentes du schéma — genre, préférences, read-state des messages, capacité d’événement, conversation_id ou heure de début d’un statut — ne sont pas inventées.
+
+Le seed ne peut être exécuté qu’avec `SUPABASE_SERVICE_ROLE_KEY` dans un environnement serveur non versionné. Cette variable n’est jamais utilisée dans le mobile. Le mode backend réel du mobile devra ensuite remplacer progressivement les fixtures Zustand par des requêtes Supabase ; le mode démo local reste conservé comme fallback.
+
 ## Variables d’environnement
 
 Les variables mobiles publiques sont dans `apps/mobile/.env.example`. Les variables du dashboard sont dans `apps/admin-web/.env.example`. Le `.env.example` racine sert de catalogue CI/backend et ne doit pas être copié tel quel dans une application.
@@ -97,15 +127,18 @@ Les variables `EXPO_PUBLIC_*` et `VITE_*` sont publiques par nature ; les secret
 
 ## Commandes
 
-| Commande            | Usage                              |
-| ------------------- | ---------------------------------- |
-| `pnpm dev`          | Lance les apps en développement    |
-| `pnpm build`        | Build de tous les packages         |
-| `pnpm typecheck`    | Vérification TypeScript            |
-| `pnpm lint`         | ESLint                             |
-| `pnpm test`         | Tests unitaires                    |
-| `pnpm e2e`          | Tests Detox sur appareil configuré |
-| `pnpm format:check` | Vérification Prettier              |
+| Commande                | Usage                                     |
+| ----------------------- | ----------------------------------------- |
+| `pnpm dev`              | Lance les apps en développement           |
+| `pnpm build`            | Build de tous les packages                |
+| `pnpm typecheck`        | Vérification TypeScript                   |
+| `pnpm lint`             | ESLint                                    |
+| `pnpm test`             | Tests unitaires                           |
+| `pnpm e2e`              | Tests Detox sur appareil configuré        |
+| `pnpm format:check`     | Vérification Prettier                     |
+| `pnpm seed:development` | Seed Supabase de développement idempotent |
+| `pnpm verify:seed`      | Vérification des données de seed          |
+| `pnpm seed:reset-demo`  | Nettoyage ciblé des seules données démo   |
 
 ## Flux P0 couvert
 

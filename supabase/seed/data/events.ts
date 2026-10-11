@@ -1,0 +1,1 @@
+export { eventFixtures } from './fixtures';

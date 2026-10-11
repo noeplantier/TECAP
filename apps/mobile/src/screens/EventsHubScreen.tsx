@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   filterActive: { borderColor: colors.pink, color: colors.text },
   mapCard: {
     height: 205,
-    backgroundColor: '#17132B',
+    backgroundColor: colors.surfaceStrong,
     borderColor: colors.line,
     borderWidth: 1,
     borderRadius: radius.lg,

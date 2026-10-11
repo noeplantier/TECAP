@@ -56,7 +56,7 @@ Si le bundler affiche `Unable to resolve "../../App" from .../expo/AppEntry.js`,
 ## Backend Supabase
 
 1. Créer un projet Supabase.
-2. Exécuter `supabase/migrations/0001_init.sql`, puis `supabase/migrations/0002_social_mvp.sql` dans l’éditeur SQL ou avec la Supabase CLI.
+2. Exécuter les migrations `0001_init.sql`, `0002_social_mvp.sql`, `0003_backend_actions.sql`, `0004_realtime_geo_discovery.sql` et `0005_catch_notifications.sql` dans l’éditeur SQL ou avec la Supabase CLI.
 3. Déployer les fonctions :
 
 ```bash
@@ -72,7 +72,7 @@ Le dépôt a été vérifié et déployé sur le projet Supabase TÉCAP de déve
 
 - référence : `bzijrulrqhnwycgmhcti` ;
 - région : `ca-central-1` ;
-- migrations appliquées : `init_p0`, `social_mvp`, `backend_actions` ;
+- migrations appliquées : `init_p0`, `social_mvp`, `backend_actions`, `realtime_geo_discovery`, `catch_notifications` ;
 - tables publiques : RLS activée sur toutes les tables créées ;
 - Edge Functions actives : `validate-pass` et `expire-statuses`, toutes deux avec JWT obligatoire ;
 - types TypeScript du package `@tecap/supabase-types` synchronisés avec le schéma distant.
@@ -89,7 +89,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=<clé publishable/anon récupérée dans Supabase>
 
 Le mode démo reste disponible si `EXPO_PUBLIC_USE_SUPABASE=false` ou si les clés sont absentes.
 
-Quand `EXPO_PUBLIC_USE_SUPABASE=true`, l’application utilise Supabase pour l’OTP, les profils de la même ville, les swipes, les quotas de likes via RPC transactionnelle, les matches, les messages avec Realtime, les statuts de soirée, les événements publiés et la lecture des entitlements. Le mode local reste un fallback explicite pour les maquettes et les tests sans réseau.
+Quand `EXPO_PUBLIC_USE_SUPABASE=true`, l’application utilise Supabase pour l’OTP, la découverte scorée par RPC, les profils éligibles, les swipes atomiques, les quotas de likes, les matches, les messages avec Realtime, les statuts de soirée, les hotspots agrégés, les événements publiés, les notifications et la lecture des entitlements. Le mode local reste un fallback explicite pour les maquettes et les tests sans réseau.
 
 ### Seed développement idempotent
 
@@ -117,9 +117,25 @@ pnpm verify:seed       # vérifie les volumes minimums du seed
 pnpm seed:reset-demo   # supprime uniquement les données tecap.demo+*@example.test
 ```
 
-Le seed prépare notamment 34 profils (Alex, 30 profils secondaires, Alex Limite, TÉCAP Admin et Staff TÉCAP Night), 16 matches, conversations, messages, statuts actifs/expirés, demandes, notifications, achats de démonstration, boosts, deux événements TÉCAP Night, participants, pass QR, préinscriptions, blocage et signalement fictifs. Les colonnes absentes du schéma — genre, préférences, read-state des messages, capacité d’événement, conversation_id ou heure de début d’un statut — ne sont pas inventées.
+Le seed prépare notamment 34 profils (Alex, 30 profils secondaires, Alex Limite, TÉCAP Admin et Staff TÉCAP Night), 16 matches, conversations, messages, 23 statuts dont trois groupes de hotspots anonymisés à Saint-Brieuc, demandes, notifications, achats de démonstration, boosts, deux événements TÉCAP Night, participants, pass QR, préinscriptions, blocage et signalement fictifs. Les colonnes absentes du schéma — genre, préférences, read-state des messages, capacité d’événement, conversation_id ou heure de début d’un statut — ne sont pas inventées.
 
-Le seed ne peut être exécuté qu’avec `SUPABASE_SERVICE_ROLE_KEY` dans un environnement serveur non versionné. Cette variable n’est jamais utilisée dans le mobile. Le mode backend réel du mobile devra ensuite remplacer progressivement les fixtures Zustand par des requêtes Supabase ; le mode démo local reste conservé comme fallback.
+Le seed ne peut être exécuté qu’avec `SUPABASE_SERVICE_ROLE_KEY` dans un environnement serveur non versionné. Cette variable n’est jamais utilisée dans le mobile. Les écrans backend principaux sont déjà branchés sur Supabase ; les fixtures Zustand restent un fallback explicite lorsque `EXPO_PUBLIC_USE_SUPABASE=false`.
+
+### Discovery, carte et confidentialité géographique
+
+- `get_discover_candidates` calcule côté serveur un score explicable : même zone, statut actif ce soir, fraîcheur du profil et visibilité volontaire. Il exclut l’utilisateur courant, les swipes déjà enregistrés, les blocages mutuels et les profils invisibles. Le curseur `p_cursor` repose sur `updated_at` et la page est plafonnée à 50 résultats.
+- `launch_areas` rend Saint-Brieuc active et prépare Guingamp/Rennes fermées. Le mobile lit la zone ouverte au lieu de dériver une ville depuis une coordonnée.
+- `user_location_private` ne contient une position que lorsque l’utilisateur l’autorise. La RLS limite toutes les opérations au propriétaire ; les RPC publiques ne retournent jamais ses coordonnées.
+- La carte affiche uniquement des hotspots publics agrégés avec un seuil d’au moins trois membres, filtrés par visibilité et blocages. Les marqueurs de démonstration représentent des lieux publics approximatifs, pas les positions de membres.
+- La permission Expo est foreground/When In Use, demandée depuis `Sorties > Carte` ou `Profil > Ma zone`, jamais au lancement. `Supprimer ma position` efface la ligne privée et réinitialise le consentement.
+- `react-native-maps` est utilisé sur iOS/Android dans un development build ; le web possède un fallback zoomable/déplaçable sans clé de carte externe. En mode `__DEV__`, `Simuler Saint-Brieuc` permet de tester le centrage sans GPS du simulateur.
+
+### Notifications et Realtime
+
+- Les triggers SQL créent des notifications in-app pour les matches, messages et demandes « On se capte ce soir ? » sans appel réseau bloquant. `notifications` reste RLS par utilisateur et est publié dans Realtime.
+- Le mobile hydrate le centre depuis Supabase, marque les notifications lues, écoute les inserts Realtime, affiche une notification locale si la permission est accordée et redirige les taps vers les stacks imbriquées `MessagesTab`, `OutingsTab` ou `ShopTab`.
+- Le panneau `Profil > Démo notifications` est disponible seulement en `__DEV__` et déclenche `match`, `message`, `catch` ou `system` dans le centre in-app et au niveau système si supporté.
+- Les notifications locales sont testables sur un simulateur iOS après autorisation. Les push distantes Expo/APNs exigent un `EXPO_PUBLIC_EAS_PROJECT_ID`, un development/production build et des credentials Apple ; elles ne sont pas garanties dans Expo Go ou sur tous les simulateurs. Aucun token secret n’est stocké dans Git.
 
 ## Variables d’environnement
 

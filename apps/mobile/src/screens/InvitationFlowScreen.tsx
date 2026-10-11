@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 17,
   },
-  ctaText: { color: '#190915', fontSize: 15, fontWeight: '900' },
+  ctaText: { color: colors.ivoryText, fontSize: 15, fontWeight: '900' },
   later: { color: colors.mutedStrong, textAlign: 'center', padding: 16, fontSize: 12 },
   avatarRing: {
     alignSelf: 'center',
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     borderColor: colors.gold,
     borderWidth: 3,
-    backgroundColor: colors.violetSoft,
+    backgroundColor: colors.magenta,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: -25,

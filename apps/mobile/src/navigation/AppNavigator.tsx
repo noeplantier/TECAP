@@ -1,7 +1,13 @@
-import { NavigationContainer, DarkTheme } from '@react-navigation/native';
+import {
+  createNavigationContainerRef,
+  NavigationContainer,
+  DarkTheme,
+} from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthScreen } from '../screens/AuthScreen';
@@ -32,6 +38,34 @@ const OutingsStack = createNativeStackNavigator();
 const MessagesStack = createNativeStackNavigator();
 const ProfileStack = createNativeStackNavigator();
 const ShopStack = createNativeStackNavigator();
+
+type RootParamList = {
+  Auth: undefined;
+  MainTabs: { screen: string; params?: object };
+};
+const navigationRef = createNavigationContainerRef<RootParamList>();
+
+function navigateFromNotification(data: Record<string, unknown>) {
+  if (!navigationRef.isReady()) return;
+  const matchId = typeof data.matchId === 'string' ? data.matchId : undefined;
+  if (matchId) {
+    navigationRef.navigate('MainTabs', {
+      screen: 'MessagesTab',
+      params: { screen: 'Conversation', params: { matchId } },
+    });
+    return;
+  }
+  if (data.route === 'EveningStatus') {
+    navigationRef.navigate('MainTabs', {
+      screen: 'OutingsTab',
+      params: { screen: 'EveningStatus' },
+    });
+  } else if (data.route === 'Shop') {
+    navigationRef.navigate('MainTabs', { screen: 'ShopTab', params: { screen: 'ShopHome' } });
+  } else if (data.route === 'Map') {
+    navigationRef.navigate('MainTabs', { screen: 'OutingsTab', params: { screen: 'Map' } });
+  }
+}
 
 const navigationTheme = {
   ...DarkTheme,
@@ -184,8 +218,27 @@ function MainTabs() {
 
 export function AppNavigator() {
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data;
+        navigateFromNotification(
+          typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {},
+        );
+      },
+    );
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (!response) return;
+      const data = response.notification.request.content.data;
+      navigateFromNotification(
+        typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {},
+      );
+    });
+    return () => responseSubscription.remove();
+  }, [isAuthenticated]);
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer ref={navigationRef} theme={navigationTheme}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           <RootStack.Screen name='Auth' component={AuthScreen} />

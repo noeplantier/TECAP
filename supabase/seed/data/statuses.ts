@@ -16,4 +16,6 @@ export const activeStatusKeys = [
   'baptiste',
   'yanis',
   'paul',
+  'sacha',
+  'elise',
 ];

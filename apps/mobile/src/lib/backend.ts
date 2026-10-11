@@ -15,6 +15,31 @@ export type BackendConversation = {
 };
 
 export type BackendStatus = Tables<'evening_statuses'>;
+export type BackendHotspot = {
+  city: string;
+  venue: string;
+  activityType: string;
+  memberCount: number;
+};
+export type BackendNotification = Tables<'notifications'>;
+
+type DiscoveryCandidate = {
+  profile_id: string;
+  first_name: string;
+  birth_date: string;
+  city: string;
+  city_slug: string | null;
+  bio: string;
+  avatar_path: string | null;
+  gender: string | null;
+  seeking: string | null;
+  score: number;
+  score_reason: string;
+  status_type: string | null;
+  venue: string | null;
+  status_expires_at: string | null;
+  cursor_updated_at: string;
+};
 
 function ageFromBirthDate(birthDate: string) {
   const birth = new Date(`${birthDate}T00:00:00Z`);
@@ -58,6 +83,31 @@ function remoteProfileToDemo(
   };
 }
 
+function candidateToDemo(candidate: DiscoveryCandidate): DemoProfile {
+  const photo =
+    candidate.avatar_path ??
+    `https://api.dicebear.com/9.x/shapes/svg?seed=tecap-${encodeURIComponent(candidate.profile_id)}`;
+  return {
+    id: candidate.profile_id,
+    name: candidate.first_name,
+    age: ageFromBirthDate(candidate.birth_date),
+    city: candidate.city,
+    gender: candidate.gender ?? 'non renseigné',
+    seeking: candidate.seeking ?? 'rencontres respectueuses',
+    bio: candidate.bio,
+    interests: candidate.score_reason ? [candidate.score_reason] : [],
+    tags: candidate.status_type ? [candidate.status_type] : [],
+    status: candidate.status_type
+      ? `${candidate.status_type} · ${candidate.venue ?? 'lieu partagé'}`
+      : undefined,
+    venue: candidate.venue ?? undefined,
+    distance: candidate.city === 'Saint-Brieuc' ? 'À Saint-Brieuc' : 'Dans ta zone',
+    photo,
+    gallery: [photo],
+    willMatchOnLike: false,
+  };
+}
+
 async function currentUserId() {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user)
@@ -79,6 +129,7 @@ export async function ensureBackendProfile() {
     first_name: 'Nouveau membre',
     birth_date: '1998-06-15',
     city: 'Saint-Brieuc',
+    city_slug: 'saint-brieuc',
     bio: 'Je découvre TÉCAP.',
     avatar_path: null,
     role: 'user',
@@ -86,37 +137,22 @@ export async function ensureBackendProfile() {
     consent_terms_at: new Date().toISOString(),
     consent_notifications_at: null,
     consent_sms_at: null,
+    gender: null,
+    seeking: null,
+    discover_visible: true,
+    location_consent: false,
   });
   if (error) throw error;
 }
 
 export async function fetchBackendProfiles(city?: string) {
-  const userId = await currentUserId();
-  const { data: me, error: meError } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
-  if (meError) throw meError;
-  const selectedCity = city ?? me.city;
-  const { data: profiles, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('city', selectedCity)
-    .neq('id', userId)
-    .eq('role', 'user')
-    .order('created_at', { ascending: true });
+  const { data, error } = await supabase.rpc('get_discover_candidates', {
+    p_city_slug: city,
+    p_limit: 20,
+  });
   if (error) throw error;
-  const profileIds = profiles.map((profile) => profile.id);
-  if (!profileIds.length) return [];
-  const { data: statuses, error: statusError } = await supabase
-    .from('evening_statuses')
-    .select('*')
-    .in('user_id', profileIds)
-    .gt('expires_at', new Date().toISOString());
-  if (statusError) throw statusError;
-  const statusByUser = new Map((statuses ?? []).map((status) => [status.user_id, status]));
-  return profiles.map((profile) => remoteProfileToDemo(profile, statusByUser.get(profile.id)));
+  if (!Array.isArray(data)) return [];
+  return (data as DiscoveryCandidate[]).map(candidateToDemo);
 }
 
 async function remoteMatchesFor(userId: string) {
@@ -256,6 +292,133 @@ export async function fetchBackendEvents() {
     .order('starts_at', { ascending: true });
   if (error) throw error;
   return data;
+}
+
+export async function fetchBackendLaunchAreas() {
+  const { data, error } = await supabase
+    .from('launch_areas')
+    .select('*')
+    .eq('is_open', true)
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchBackendHotspots(citySlug?: string): Promise<BackendHotspot[]> {
+  const { data, error } = await supabase.rpc('get_evening_hotspots', {
+    p_city_slug: citySlug,
+    p_min_members: 3,
+    p_limit: 30,
+  });
+  if (error) throw error;
+  if (!Array.isArray(data)) return [];
+  return (
+    data as Array<{ city: string; venue: string; activity_type: string; member_count: number }>
+  ).map((hotspot) => ({
+    city: hotspot.city,
+    venue: hotspot.venue,
+    activityType: hotspot.activity_type,
+    memberCount: Number(hotspot.member_count),
+  }));
+}
+
+export async function fetchBackendNotifications(): Promise<BackendNotification[]> {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function markBackendNotificationsRead() {
+  const userId = await currentUserId();
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .is('read_at', null);
+  if (error) throw error;
+}
+
+export async function savePrivateLocation(input: {
+  latitude: number;
+  longitude: number;
+  accuracyM?: number | null;
+  expiresAt?: string | null;
+}) {
+  const userId = await currentUserId();
+  const { error } = await supabase.from('user_location_private').upsert(
+    {
+      user_id: userId,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      accuracy_m: input.accuracyM ?? null,
+      consented_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      expires_at: input.expiresAt ?? null,
+    },
+    { onConflict: 'user_id' },
+  );
+  if (error) throw error;
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({ location_consent: true })
+    .eq('id', userId);
+  if (profileError) throw profileError;
+}
+
+export async function deletePrivateLocation() {
+  const userId = await currentUserId();
+  const { error } = await supabase.from('user_location_private').delete().eq('user_id', userId);
+  if (error) throw error;
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({ location_consent: false })
+    .eq('id', userId);
+  if (profileError) throw profileError;
+}
+
+export async function setBackendMapVisibility(visible: boolean) {
+  const userId = await currentUserId();
+  const { error } = await supabase
+    .from('profiles')
+    .update({ discover_visible: visible })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
+export async function setBackendCity(city: string, citySlug?: string | null) {
+  const userId = await currentUserId();
+  const { error } = await supabase
+    .from('profiles')
+    .update({ city, city_slug: citySlug ?? null })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
+export async function registerBackendPushToken(input: {
+  provider: 'expo' | 'apns' | 'fcm';
+  token: string;
+  platform: 'ios' | 'android' | 'web';
+  deviceId?: string | null;
+}) {
+  const userId = await currentUserId();
+  const { error } = await supabase.from('device_push_tokens').upsert(
+    {
+      user_id: userId,
+      provider: input.provider,
+      token: input.token,
+      platform: input.platform,
+      device_id: input.deviceId ?? null,
+      last_seen_at: new Date().toISOString(),
+      disabled_at: null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'provider,token' },
+  );
+  if (error) throw error;
 }
 
 export async function fetchBackendEntitlements() {

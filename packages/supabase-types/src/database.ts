@@ -31,7 +31,24 @@ type Profile = Base & {
   consent_terms_at: string | null;
   consent_notifications_at: string | null;
   consent_sms_at: string | null;
+  city_slug: string | null;
+  gender: string | null;
+  seeking: string | null;
+  discover_visible: boolean;
+  location_consent: boolean;
   updated_at: string;
+};
+type LaunchArea = {
+  slug: string;
+  name: string;
+  department: string;
+  country_code: string;
+  timezone: string;
+  center_lat: number;
+  center_lng: number;
+  initial_radius_km: number;
+  is_open: boolean;
+  created_at: string;
 };
 type Preinscription = Base & {
   public_id: string | null;
@@ -140,6 +157,25 @@ type Report = Base & {
   status: string;
 };
 type Block = { blocker_id: string; blocked_id: string; created_at: string };
+type PrivateLocation = {
+  user_id: string;
+  latitude: number;
+  longitude: number;
+  accuracy_m: number | null;
+  consented_at: string;
+  updated_at: string;
+  expires_at: string | null;
+};
+type DevicePushToken = Base & {
+  user_id: string;
+  provider: 'expo' | 'apns' | 'fcm';
+  token: string;
+  platform: 'ios' | 'android' | 'web';
+  device_id: string | null;
+  last_seen_at: string;
+  disabled_at: string | null;
+  updated_at: string;
+};
 
 type InsertOf<Row extends object> = Partial<Row> & Omit<Row, 'id' | 'created_at'>;
 
@@ -155,6 +191,7 @@ export type Database = {
           updated_at?: string;
         }
       >;
+      launch_areas: TableContract<LaunchArea, Omit<LaunchArea, 'created_at'>>;
       preinscriptions: TableContract<Preinscription, InsertOf<Preinscription>>;
       events: TableContract<Event, InsertOf<Event>>;
       event_participants: TableContract<EventParticipant, EventParticipant>;
@@ -173,11 +210,21 @@ export type Database = {
       boosts: TableContract<Boost, InsertOf<Boost>>;
       reports: TableContract<Report, InsertOf<Report>>;
       blocks: TableContract<Block, Block>;
+      user_location_private: TableContract<PrivateLocation, PrivateLocation>;
+      device_push_tokens: TableContract<DevicePushToken, InsertOf<DevicePushToken>>;
     };
     Views: Record<string, never>;
     Functions: {
       validate_pass: { Args: { pass_id: string; scan_source?: string }; Returns: Json };
       record_swipe: { Args: { target_id: string; direction: string }; Returns: Json };
+      get_discover_candidates: {
+        Args: { p_city_slug?: string; p_limit?: number; p_cursor?: string };
+        Returns: Json;
+      };
+      get_evening_hotspots: {
+        Args: { p_city_slug?: string; p_min_members?: number; p_limit?: number };
+        Returns: Json;
+      };
       expire_evening_statuses: { Args: Record<string, never>; Returns: number };
       is_staff_or_admin: { Args: Record<string, never>; Returns: boolean };
     };

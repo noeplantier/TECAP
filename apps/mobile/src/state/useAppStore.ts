@@ -56,6 +56,13 @@ export type OutingStatus = {
   note?: string;
   expiresAt: number;
 };
+export type LocationConsent = 'unknown' | 'granted' | 'denied';
+export type ApproximateLocation = {
+  latitude: number;
+  longitude: number;
+  accuracyM?: number | null;
+  updatedAt: number;
+};
 
 const LIKE_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const FREE_LIKE_LIMIT = 25;
@@ -100,6 +107,9 @@ type AppState = {
   catchRequests: CatchRequest[];
   notifications: LocalNotification[];
   outingStatus?: OutingStatus;
+  locationConsent: LocationConsent;
+  mapVisible: boolean;
+  approximateLocation?: ApproximateLocation;
   setCity: (city: string) => void;
   setAuthenticated: (value: boolean) => void;
   setAccepted18Plus: (value: boolean) => void;
@@ -123,6 +133,10 @@ type AppState = {
   ) => void;
   publishOutingStatus: (status: OutingStatus) => void;
   removeOutingStatus: () => void;
+  setLocationConsent: (value: LocationConsent) => void;
+  setMapVisible: (value: boolean) => void;
+  setApproximateLocation: (value: ApproximateLocation | undefined) => void;
+  addNotification: (input: Omit<LocalNotification, 'id' | 'createdAt' | 'read'>) => void;
   markNotificationsRead: () => void;
   resetDemo: () => void;
 };
@@ -143,6 +157,9 @@ const initialState = {
   catchRequests: [] as CatchRequest[],
   notifications: [] as LocalNotification[],
   outingStatus: undefined as OutingStatus | undefined,
+  locationConsent: 'unknown' as LocationConsent,
+  mapVisible: false,
+  approximateLocation: undefined as ApproximateLocation | undefined,
 };
 
 export const useAppStore = create<AppState>()(
@@ -289,6 +306,21 @@ export const useAppStore = create<AppState>()(
         }),
       publishOutingStatus: (outingStatus) => set({ outingStatus }),
       removeOutingStatus: () => set({ outingStatus: undefined }),
+      setLocationConsent: (locationConsent) => set({ locationConsent }),
+      setMapVisible: (mapVisible) => set({ mapVisible }),
+      setApproximateLocation: (approximateLocation) => set({ approximateLocation }),
+      addNotification: (input) =>
+        set((state) => ({
+          notifications: [
+            {
+              ...input,
+              id: `notification-${Date.now()}-${Math.random()}`,
+              createdAt: now(),
+              read: false,
+            },
+            ...state.notifications,
+          ],
+        })),
       markNotificationsRead: () =>
         set((state) => ({
           notifications: state.notifications.map((item) => ({ ...item, read: true })),

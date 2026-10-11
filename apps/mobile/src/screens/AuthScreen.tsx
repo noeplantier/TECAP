@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   kicker: {
-    color: colors.violet,
+    color: colors.hotPink,
     fontSize: 10,
     letterSpacing: 1.6,
     fontWeight: '800',

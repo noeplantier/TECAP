@@ -1,27 +1,55 @@
+export const background = {
+  base: '#07050B',
+  elevated: '#101016',
+  card: '#13121A',
+  overlay: 'rgba(7,5,11,0.76)',
+} as const;
+
+export const text = {
+  primary: '#FFF9FC',
+  secondary: '#E5DDE5',
+  muted: '#AAA2AE',
+} as const;
+
+export const brand = {
+  pink: '#FF2BAA',
+  hotPink: '#FF46C8',
+  magenta: '#D900B8',
+  gold: '#F6BD4B',
+  goldLight: '#FFD978',
+} as const;
+
+export const status = {
+  success: '#70D7A4',
+  danger: '#E84A72',
+} as const;
+
+/** Legacy aliases keep existing screens source-compatible while using the central tokens above. */
 export const colors = {
-  canvas: '#05050B',
-  surface: '#0D0C17',
-  surfaceStrong: '#171329',
-  surfaceSoft: '#24183C',
-  text: '#FBF9FF',
-  muted: '#A8A3B7',
-  mutedStrong: '#E4DFEA',
-  violet: '#B620FF',
-  violetSoft: '#7424A5',
-  pink: '#FF2EAD',
-  pinkSoft: '#A91C73',
-  gold: '#FFD36A',
-  goldSoft: '#9E6D24',
-  ivory: '#FFE08A',
+  canvas: background.base,
+  surface: background.elevated,
+  surfaceStrong: background.card,
+  surfaceSoft: '#2A101F',
+  text: text.primary,
+  muted: text.muted,
+  mutedStrong: text.secondary,
+  pink: brand.pink,
+  pinkSoft: '#951968',
+  magenta: brand.magenta,
+  hotPink: brand.hotPink,
+  gold: brand.gold,
+  goldLight: brand.goldLight,
+  goldSoft: '#9A6A24',
+  ivory: brand.goldLight,
   ivoryText: '#24150A',
-  green: '#70D7A4',
-  danger: '#F28A9F',
-  line: '#3B294B',
-  lineBright: '#FF5CC4',
-  overlay: 'rgba(5,5,11,.72)',
-  pinkWash: 'rgba(255,46,173,.12)',
-  goldWash: 'rgba(255,211,106,.11)',
-};
+  green: status.success,
+  danger: status.danger,
+  line: '#3A182D',
+  lineBright: brand.hotPink,
+  overlay: background.overlay,
+  pinkWash: 'rgba(255,43,170,0.12)',
+  goldWash: 'rgba(246,189,75,0.12)',
+} as const;
 
 export const spacing = { xs: 6, sm: 10, md: 14, lg: 20, xl: 28, xxl: 36 };
 export const radius = { sm: 10, md: 14, lg: 20, pill: 999 };
@@ -34,14 +62,14 @@ export const typography = {
 
 export const glow = {
   pink: {
-    shadowColor: colors.pink,
+    shadowColor: brand.pink,
     shadowOpacity: 0.45,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 0 },
     elevation: 10,
   },
   gold: {
-    shadowColor: colors.gold,
+    shadowColor: brand.gold,
     shadowOpacity: 0.35,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 0 },

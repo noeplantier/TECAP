@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   cta: { borderRadius: radius.pill, alignItems: 'center', padding: 16, marginTop: 17 },
   ctaPink: { backgroundColor: colors.pink },
   ctaGold: { backgroundColor: colors.gold },
-  ctaText: { color: '#190915', fontSize: 15, fontWeight: '900' },
+  ctaText: { color: colors.ivoryText, fontSize: 15, fontWeight: '900' },
   ctaArrow: { fontSize: 23 },
   secondary: { alignItems: 'center', paddingVertical: 13 },
   secondaryText: { color: colors.mutedStrong, fontSize: 11 },

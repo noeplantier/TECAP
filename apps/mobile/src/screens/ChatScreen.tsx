@@ -1,7 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { demoProfiles } from '../lib/demo';
+import { fetchBackendConversation, sendBackendMessage } from '../lib/backend';
 import { goToDiscover } from '../navigation/routes';
+import { isBackendEnabled } from '../lib/runtime';
+import { supabase } from '../lib/supabase';
 import { useAppStore } from '../state/useAppStore';
 import { colors, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
@@ -17,18 +30,43 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
   const requests = useAppStore((state) => state.catchRequests);
   const addMessage = useAppStore((state) => state.addMessage);
   const markMatchRead = useAppStore((state) => state.markMatchRead);
+  const queryClient = useQueryClient();
   const matchId = route?.params?.matchId;
   const selectedMatch = matches.find((match) => match.id === matchId) ?? matches[0];
   const profile = useMemo(
     () => demoProfiles.find((item) => item.id === selectedMatch?.profileId),
     [selectedMatch?.profileId],
   );
+  const remoteConversation = useQuery({
+    queryKey: ['backend-conversation', matchId],
+    queryFn: () => fetchBackendConversation(matchId!),
+    enabled: isBackendEnabled && Boolean(matchId),
+  });
+  const displayProfile = isBackendEnabled ? remoteConversation.data?.profile : profile;
 
   useEffect(() => {
-    if (selectedMatch) markMatchRead(selectedMatch.id);
+    if (selectedMatch && !isBackendEnabled) markMatchRead(selectedMatch.id);
   }, [markMatchRead, selectedMatch]);
 
-  if (!selectedMatch || !profile) {
+  useEffect(() => {
+    if (!isBackendEnabled || !matchId) return;
+    const channel = supabase
+      .channel(`tecap-conversation-${matchId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages', filter: `match_id=eq.${matchId}` },
+        () => void queryClient.invalidateQueries({ queryKey: ['backend-conversation', matchId] }),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [matchId, queryClient]);
+
+  if (
+    (!isBackendEnabled && (!selectedMatch || !profile)) ||
+    (isBackendEnabled && remoteConversation.isLoading)
+  ) {
     return (
       <View style={styles.container}>
         <View style={styles.listHeader}>
@@ -50,20 +88,43 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
     );
   }
 
-  const conversation = messages.filter((message) => message.matchId === selectedMatch.id);
+  if (!displayProfile) return null;
+  const conversation = isBackendEnabled
+    ? (remoteConversation.data?.messages ?? []).map((message) => ({
+        id: message.id,
+        text: message.text,
+        createdAt: new Date(message.createdAt).getTime(),
+        sender: message.senderId === displayProfile.id ? ('them' as const) : ('me' as const),
+      }))
+    : messages.filter((message) => message.matchId === selectedMatch!.id);
   const pendingRequest = requests.find(
-    (request) => request.matchId === selectedMatch.id && request.status === 'pending',
+    (request) => request.matchId === selectedMatch!.id && request.status === 'pending',
   );
 
-  const send = () => {
+  const send = async () => {
     const content = text.trim();
     if (!content || sending) return;
     setSending(true);
-    addMessage(selectedMatch.id, 'me', content);
+    if (isBackendEnabled) {
+      try {
+        await sendBackendMessage(matchId!, content);
+        setText('');
+        await queryClient.invalidateQueries({ queryKey: ['backend-conversation', matchId] });
+      } catch (error) {
+        Alert.alert(
+          'Message non envoyé',
+          error instanceof Error ? error.message : 'Réessaie dans un instant.',
+        );
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+    addMessage(selectedMatch!.id, 'me', content);
     setText('');
     setTimeout(() => {
       addMessage(
-        selectedMatch.id,
+        selectedMatch!.id,
         'them',
         content.toLowerCase().includes('bar')
           ? 'Carrément, ton plan me tente bien ✨'
@@ -79,13 +140,15 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
         <Pressable onPress={() => navigation.goBack?.()} accessibilityRole='button'>
           <Text style={styles.back}>‹</Text>
         </Pressable>
-        <Image source={{ uri: profile.photo }} style={styles.headerAvatar} />
+        <Image source={{ uri: displayProfile.photo }} style={styles.headerAvatar} />
         <View style={styles.headerCopy}>
           <BrandLogo size='small' />
           <Text style={styles.title}>
-            {profile.name}, {profile.age}
+            {displayProfile.name}, {displayProfile.age}
           </Text>
-          <Text style={styles.subtitle}>En ligne · {profile.venue ?? 'disponible ce soir'}</Text>
+          <Text style={styles.subtitle}>
+            En ligne · {displayProfile.venue ?? 'disponible ce soir'}
+          </Text>
         </View>
         <Text style={styles.more}>•••</Text>
       </View>
@@ -115,7 +178,7 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
           <View style={styles.welcome}>
             <Text style={styles.welcomeTitle}>Commence la conversation</Text>
             <Text style={styles.welcomeText}>
-              “Salut, ton plan {profile.venue ?? 'de ce soir'} me tente bien.”
+              “Salut, ton plan {displayProfile.venue ?? 'de ce soir'} me tente bien.”
             </Text>
           </View>
         )}

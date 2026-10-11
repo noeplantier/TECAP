@@ -1,7 +1,10 @@
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
 import { BrandLogo } from '../components/BrandLogo';
+import { fetchBackendMatches } from '../lib/backend';
 import { demoProfiles } from '../lib/demo';
 import { goToDiscover } from '../navigation/routes';
+import { isBackendEnabled } from '../lib/runtime';
 import { useAppStore } from '../state/useAppStore';
 import { colors, radius, spacing } from '../theme';
 
@@ -11,16 +14,23 @@ export function ChatListScreen({ navigation }: { navigation: Navigation }) {
   const matches = useAppStore((state) => state.matches);
   const messages = useAppStore((state) => state.messages);
   const requests = useAppStore((state) => state.catchRequests);
+  const remoteMatches = useQuery({
+    queryKey: ['backend-matches'],
+    queryFn: fetchBackendMatches,
+    enabled: isBackendEnabled,
+  });
+  const hasMatches = isBackendEnabled ? Boolean(remoteMatches.data?.length) : matches.length > 0;
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <BrandLogo size='medium' showTagline />
         <Text style={styles.count}>
-          {matches.length} match{matches.length > 1 ? 's' : ''}
+          {isBackendEnabled ? (remoteMatches.data?.length ?? 0) : matches.length} match
+          {(isBackendEnabled ? (remoteMatches.data?.length ?? 0) : matches.length) > 1 ? 's' : ''}
         </Text>
       </View>
       <Text style={styles.title}>Tes conversations</Text>
-      {matches.length === 0 ? (
+      {!hasMatches ? (
         <View style={styles.empty}>
           <Text style={styles.emptyIcon}>⌁</Text>
           <Text style={styles.emptyTitle}>Pas encore de conversation</Text>
@@ -32,6 +42,37 @@ export function ChatListScreen({ navigation }: { navigation: Navigation }) {
             <Text style={styles.primaryText}>Découvrir des profils</Text>
           </Pressable>
         </View>
+      ) : isBackendEnabled ? (
+        remoteMatches.data?.map((match) => (
+          <Pressable
+            key={match.id}
+            onPress={() => navigation.navigate('Conversation', { matchId: match.id })}
+            style={styles.row}
+            accessibilityRole='button'
+          >
+            <Image source={{ uri: match.profile.photo }} style={styles.avatar} />
+            <View style={styles.copy}>
+              <View style={styles.nameRow}>
+                <Text style={styles.name}>
+                  {match.profile.name}, {match.profile.age}
+                </Text>
+                <Text style={styles.time}>
+                  {match.lastMessage
+                    ? new Date(match.lastMessage.createdAt).toLocaleTimeString('fr-FR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : 'récent'}
+                </Text>
+              </View>
+              <Text numberOfLines={1} style={styles.preview}>
+                {match.lastMessage?.text ?? 'Nouveau match · commence la conversation'}
+              </Text>
+              <Text style={styles.location}>⌖ {match.profile.city} · à proximité</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
+        ))
       ) : (
         matches.map((match) => {
           const profile = demoProfiles.find((item) => item.id === match.profileId);

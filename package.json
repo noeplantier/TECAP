@@ -9,11 +9,15 @@
     "lint": "turbo lint",
     "test": "turbo test",
     "e2e": "pnpm --filter @tecap/mobile e2e",
+    "seed:development": "tsx supabase/seed/seed-development.ts seed",
+    "seed:reset-demo": "tsx supabase/seed/seed-development.ts reset",
+    "verify:seed": "tsx supabase/seed/seed-development.ts verify",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.47.10",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.2",
     "@typescript-eslint/eslint-plugin": "^8.18.0",
@@ -23,6 +27,7 @@
     "eslint-plugin-prettier": "^5.2.1",
     "husky": "^9.1.7",
     "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2"
   }

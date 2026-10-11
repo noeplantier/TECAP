@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -7,7 +8,9 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { demoProfiles } from '../lib/demo';
-import { goToShop } from '../navigation/routes';
+import { fetchBackendProfiles, recordBackendSwipe } from '../lib/backend';
+import { isBackendEnabled } from '../lib/runtime';
+import { goToMessages, goToShop } from '../navigation/routes';
 import { useAppStore } from '../state/useAppStore';
 import { colors, glow, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
@@ -25,16 +28,22 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
   const likesRemaining = useAppStore((state) => state.likesRemaining());
   const likeProfile = useAppStore((state) => state.likeProfile);
   const passProfile = useAppStore((state) => state.passProfile);
+  const remoteProfiles = useQuery({
+    queryKey: ['discover-profiles', isBackendEnabled],
+    queryFn: () => fetchBackendProfiles(),
+    enabled: isBackendEnabled,
+  });
+  const sourceProfiles = isBackendEnabled ? (remoteProfiles.data ?? []) : demoProfiles;
 
   const visibleProfiles = useMemo(
     () =>
-      demoProfiles.filter(
+      sourceProfiles.filter(
         (profile) =>
           !likedProfileIds.includes(profile.id) &&
           !passedProfileIds.includes(profile.id) &&
           !blockedProfileIds.includes(profile.id),
       ),
-    [blockedProfileIds, likedProfileIds, passedProfileIds],
+    [blockedProfileIds, likedProfileIds, passedProfileIds, sourceProfiles],
   );
   const current = visibleProfiles[index];
 
@@ -53,10 +62,33 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
     translateX.value = 0;
   };
 
-  const swipe = (direction: 'like' | 'pass') => {
+  const swipe = async (direction: 'like' | 'pass') => {
     if (!current || swiping) return;
+    if (isBackendEnabled) {
+      try {
+        const result = await recordBackendSwipe(current.id, direction);
+        if (!result.allowed) {
+          goToShop(navigation);
+          return;
+        }
+        if (direction === 'pass') passProfile(current.id);
+        else likeProfile(current.id, result.matched);
+        if (result.matched) {
+          goToMessages(navigation);
+          return;
+        }
+      } catch (error) {
+        Alert.alert(
+          'Action indisponible',
+          error instanceof Error ? error.message : 'Réessaie dans un instant.',
+        );
+        return;
+      }
+    }
     if (direction === 'like') {
-      const result = likeProfile(current.id, current.willMatchOnLike);
+      const result = isBackendEnabled
+        ? { allowed: true, matched: false }
+        : likeProfile(current.id, current.willMatchOnLike);
       if (!result.allowed) {
         goToShop(navigation);
         return;

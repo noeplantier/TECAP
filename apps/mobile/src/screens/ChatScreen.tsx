@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingHorizontal: 22,
   },
-  primaryText: { color: '#190915', fontWeight: '900' },
+  primaryText: { color: colors.ivoryText, fontWeight: '900' },
   messageWrap: { alignItems: 'flex-start', marginBottom: 12 },
   right: { alignItems: 'flex-end' },
   bubble: {
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderRadius: radius.md,
   },
-  bubbleRight: { backgroundColor: colors.violetSoft, borderBottomRightRadius: 4 },
+  bubbleRight: { backgroundColor: colors.magenta, borderBottomRightRadius: 4 },
   messageText: { color: colors.text, fontSize: 13, lineHeight: 18 },
   time: { color: colors.muted, fontSize: 9, marginTop: 4 },
   composer: {

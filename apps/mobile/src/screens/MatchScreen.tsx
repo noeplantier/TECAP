@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     ...glow.pink,
   },
-  heartText: { color: '#190915', fontSize: 28, fontWeight: '900' },
+  heartText: { color: colors.ivoryText, fontSize: 28, fontWeight: '900' },
   plan: { color: colors.mutedStrong, fontSize: 11, marginBottom: 18 },
   primary: {
     width: '100%',

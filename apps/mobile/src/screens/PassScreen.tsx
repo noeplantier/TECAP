@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 8,
   },
-  qrText: { color: '#11121B', fontSize: 140, lineHeight: 140 },
+  qrText: { color: colors.canvas, fontSize: 140, lineHeight: 140 },
   passName: { color: colors.text, fontSize: 11, fontWeight: '700', marginTop: 15 },
   passMeta: { color: colors.muted, fontSize: 9, marginTop: 5 },
   choiceCard: {

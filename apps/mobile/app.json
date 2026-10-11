@@ -6,9 +6,30 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "tecap",
-    "ios": { "supportsTablet": false, "bundleIdentifier": "com.tecap.app" },
-    "android": { "package": "com.tecap.app", "permissions": ["POST_NOTIFICATIONS"] },
-    "plugins": ["expo-notifications", "expo-barcode-scanner", "expo-image-picker"],
-    "extra": { "eas": { "projectId": "replace-with-eas-project-id" } }
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.tecap.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "TÉCAP utilise une position approximative pour proposer des profils et sorties près de toi. Ta position exacte n’est jamais affichée aux autres membres."
+      }
+    },
+    "android": {
+      "package": "com.tecap.app",
+      "permissions": ["POST_NOTIFICATIONS", "ACCESS_COARSE_LOCATION"]
+    },
+    "plugins": [
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "TÉCAP utilise une position approximative pour proposer des profils et sorties près de toi. Ta position exacte n’est jamais affichée aux autres membres."
+        }
+      ],
+      "expo-barcode-scanner",
+      "expo-image-picker"
+    ],
+    "extra": {
+      "eas": { "projectId": "replace-with-eas-project-id" }
+    }
   }
 }

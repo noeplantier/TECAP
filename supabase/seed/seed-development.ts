@@ -191,6 +191,11 @@ function profileRows(users: UserMap, definitions: AuthDefinition[]) {
     first_name: profile.firstName,
     birth_date: dateForAge(profile.age),
     city: profile.city,
+    city_slug: profile.city
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-'),
     bio: profile.bio,
     avatar_path: avatarPath(profile.key),
     role: profile.role,
@@ -198,6 +203,8 @@ function profileRows(users: UserMap, definitions: AuthDefinition[]) {
     consent_terms_at: new Date().toISOString(),
     consent_notifications_at: new Date().toISOString(),
     consent_sms_at: null,
+    discover_visible: true,
+    location_consent: false,
   }));
 }
 
@@ -312,6 +319,18 @@ async function seed() {
   );
   await upsertRows('messages', messageRows, 'id');
 
+  const hotspotOverrides: Record<string, { statusType: SeedProfile['statusType']; venue: string }> =
+    {
+      lea: { statusType: 'bar', venue: 'Le Velvet Bar' },
+      anais: { statusType: 'bar', venue: 'Le Velvet Bar' },
+      paul: { statusType: 'bar', venue: 'Le Velvet Bar' },
+      camille: { statusType: 'concert', venue: 'TÉCAP Night · Zone événementielle' },
+      arthur: { statusType: 'concert', venue: 'TÉCAP Night · Zone événementielle' },
+      maxime: { statusType: 'concert', venue: 'TÉCAP Night · Zone événementielle' },
+      enzo: { statusType: 'club', venue: 'Club Horizon' },
+      sacha: { statusType: 'club', venue: 'Club Horizon' },
+      elise: { statusType: 'club', venue: 'Club Horizon' },
+    };
   const statusRows = [
     {
       key: 'alex',
@@ -322,10 +341,11 @@ async function seed() {
     },
     ...activeStatusKeys.map((key) => {
       const profile = profileByKey(key)!;
+      const override = hotspotOverrides[key];
       return {
         key,
-        statusType: profile.statusType,
-        venue: profile.venue,
+        statusType: override?.statusType ?? profile.statusType,
+        venue: override?.venue ?? profile.venue,
         time: profile.timeOption,
         expires: 12,
       };
@@ -671,7 +691,7 @@ async function verify() {
     matches: 16,
     conversations: 16,
     messages: 32,
-    evening_statuses: 21,
+    evening_statuses: 23,
     catch_tonight_requests: 6,
     notifications: 10,
     events: 2,

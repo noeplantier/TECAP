@@ -1,6 +1,7 @@
 import { demoProfiles } from '../src/lib/demo';
 import { goToDiscover } from '../src/navigation/routes';
 import { FREE_LIKE_LIMIT, useAppStore } from '../src/state/useAppStore';
+import { simulatedSaintBrieucLocation } from '../src/lib/geolocation';
 
 describe('TECAP local MVP', () => {
   beforeEach(() => useAppStore.getState().resetDemo());
@@ -25,5 +26,14 @@ describe('TECAP local MVP', () => {
     expect(calls).toEqual([
       ['MainTabs', { screen: 'DiscoverTab', params: { screen: 'DiscoverHome' } }],
     ]);
+  });
+
+  it('keeps the development location approximate and user-controlled', () => {
+    const simulated = simulatedSaintBrieucLocation();
+    expect(simulated.accuracyM).toBeGreaterThanOrEqual(1000);
+    useAppStore.getState().setLocationConsent('granted');
+    useAppStore.getState().setApproximateLocation({ ...simulated, updatedAt: Date.now() });
+    expect(useAppStore.getState().locationConsent).toBe('granted');
+    expect(useAppStore.getState().approximateLocation?.accuracyM).toBeGreaterThanOrEqual(1000);
   });
 });

@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 22,
   },
-  primaryText: { color: '#190915', fontSize: 15, fontWeight: '900' },
+  primaryText: { color: colors.ivoryText, fontSize: 15, fontWeight: '900' },
   catchButton: {
     backgroundColor: colors.gold,
     borderRadius: radius.pill,

@@ -179,5 +179,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     marginTop: 19,
   },
-  primaryText: { color: '#190915', fontWeight: '900' },
+  primaryText: { color: colors.ivoryText, fontWeight: '900' },
 });

@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 17,
   },
-  primaryText: { color: '#190915', fontSize: 15, fontWeight: '900' },
+  primaryText: { color: colors.ivoryText, fontSize: 15, fontWeight: '900' },
   secondary: {
     width: '100%',
     borderColor: colors.line,

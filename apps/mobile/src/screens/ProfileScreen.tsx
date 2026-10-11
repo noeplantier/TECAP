@@ -3,6 +3,7 @@ import { colors, radius, spacing } from '../theme';
 import { useAppStore } from '../state/useAppStore';
 import { supabase } from '../lib/supabase';
 import { isBackendEnabled } from '../lib/runtime';
+import { BrandLogo } from '../components/BrandLogo';
 
 export function ProfileScreen() {
   const setAuthenticated = useAppStore((state) => state.setAuthenticated);
@@ -14,7 +15,10 @@ export function ProfileScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Mon profil</Text>
+        <View style={styles.brandHeader}>
+          <BrandLogo size='small' />
+          <Text style={styles.context}>MON PROFIL</Text>
+        </View>
         <Text style={styles.more}>•••</Text>
       </View>
       <View style={styles.profile}>
@@ -62,6 +66,8 @@ const styles = StyleSheet.create({
   container: { flexGrow: 1, backgroundColor: colors.canvas, padding: spacing.lg, paddingTop: 28 },
   header: { flexDirection: 'row', justifyContent: 'space-between' },
   title: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  brandHeader: { alignItems: 'center', gap: 2 },
+  context: { color: colors.gold, fontSize: 7, letterSpacing: 1.2, fontWeight: '900' },
   more: { color: colors.mutedStrong, fontSize: 18 },
   profile: { alignItems: 'center', marginVertical: 30 },
   avatar: {

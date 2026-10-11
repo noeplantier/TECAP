@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing } from '../theme';
+import { BrandLogo } from '../components/BrandLogo';
 type Navigation = { navigate: (screen: string) => void };
 export function PassScreen({ navigation }: { navigation: Navigation }) {
   return (
@@ -8,7 +9,10 @@ export function PassScreen({ navigation }: { navigation: Navigation }) {
         <Pressable onPress={() => navigation.navigate('Night')}>
           <Text style={styles.back}>‹</Text>
         </Pressable>
-        <Text style={styles.title}>Ton pass Night</Text>
+        <View style={styles.brandHeader}>
+          <BrandLogo size='small' />
+          <Text style={styles.context}>PASS NIGHT</Text>
+        </View>
         <Text style={styles.more}>•••</Text>
       </View>
       <Text style={styles.badge}>● PASS VALIDE</Text>
@@ -46,6 +50,8 @@ const styles = StyleSheet.create({
   },
   back: { color: colors.text, fontSize: 32 },
   title: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  brandHeader: { alignItems: 'center', gap: 2 },
+  context: { color: colors.gold, fontSize: 7, letterSpacing: 1.2, fontWeight: '900' },
   more: { color: colors.mutedStrong },
   badge: {
     alignSelf: 'flex-start',

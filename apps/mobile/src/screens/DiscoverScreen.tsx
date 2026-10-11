@@ -8,6 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { demoProfiles } from '../lib/demo';
 import { colors, radius, spacing } from '../theme';
+import { BrandLogo } from '../components/BrandLogo';
 
 type Navigation = { navigate: (screen: string) => void };
 export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
@@ -31,7 +32,10 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
         <Pressable onPress={() => navigation.navigate('Home')}>
           <Text style={styles.back}>×</Text>
         </Pressable>
-        <Text style={styles.eyebrow}>DÉCOUVRIR</Text>
+        <View style={styles.brandHeader}>
+          <BrandLogo size='small' />
+          <Text style={styles.eyebrow}>DÉCOUVRIR</Text>
+        </View>
         <Text style={styles.shield}>♢</Text>
       </View>
       <Pressable onPress={() => navigation.navigate('Invitation')} style={styles.specialInvite}>
@@ -89,6 +93,7 @@ const styles = StyleSheet.create({
   },
   back: { color: colors.text, fontSize: 29 },
   eyebrow: { color: colors.mutedStrong, fontSize: 10, letterSpacing: 1.4, fontWeight: '800' },
+  brandHeader: { alignItems: 'center', gap: 2 },
   shield: { color: colors.mutedStrong, fontSize: 23 },
   specialInvite: {
     flexDirection: 'row',

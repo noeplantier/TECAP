@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
 import { demoPhotos } from '../lib/demo';
 import { colors, radius, spacing } from '../theme';
+import { BrandLogo } from '../components/BrandLogo';
 type Navigation = { navigate: (screen: string) => void };
 export function EveningStatusScreen({ navigation }: { navigation: Navigation }) {
   return (
@@ -9,7 +10,10 @@ export function EveningStatusScreen({ navigation }: { navigation: Navigation }) 
         <Pressable onPress={() => navigation.navigate('Home')}>
           <Text style={styles.back}>‹</Text>
         </Pressable>
-        <Text style={styles.title}>Mon soir</Text>
+        <View style={styles.brandHeader}>
+          <BrandLogo size='small' />
+          <Text style={styles.context}>MON SOIR</Text>
+        </View>
         <Text style={styles.more}>•••</Text>
       </View>
       <View style={styles.hero}>
@@ -54,6 +58,8 @@ const styles = StyleSheet.create({
   },
   back: { color: colors.text, fontSize: 32 },
   title: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  brandHeader: { alignItems: 'center', gap: 2 },
+  context: { color: colors.gold, fontSize: 7, letterSpacing: 1.2, fontWeight: '900' },
   more: { color: colors.mutedStrong },
   hero: { height: 205, borderRadius: radius.lg, overflow: 'hidden', position: 'relative' },
   image: { width: '100%', height: '100%' },

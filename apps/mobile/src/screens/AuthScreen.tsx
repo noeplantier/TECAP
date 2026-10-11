@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { isBackendEnabled } from '../lib/runtime';
 import { useAppStore } from '../state/useAppStore';
 import { colors, radius, spacing } from '../theme';
+import { BrandLogo } from '../components/BrandLogo';
 
 export function AuthScreen() {
   const [email, setEmail] = useState('');
@@ -34,7 +35,7 @@ export function AuthScreen() {
   };
   return (
     <View style={styles.container}>
-      <Text style={styles.wordmark}>TÉCAP</Text>
+      <BrandLogo size='large' showTagline />
       <Text style={styles.kicker}>RENCONTRES · SORTIES · IRL</Text>
       <Text style={styles.title}>Ton soir ?{`\n`}On se capte.</Text>
       <Text style={styles.subtitle}>Ta ville, tes envies, les bonnes personnes au bon moment.</Text>
@@ -75,7 +76,6 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     justifyContent: 'center',
   },
-  wordmark: { color: colors.text, fontSize: 34, fontWeight: '900', letterSpacing: 3 },
   kicker: {
     color: colors.violet,
     fontSize: 10,

@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
 import { demoPhotos } from '../lib/demo';
 import { colors, radius, spacing } from '../theme';
+import { BrandLogo } from '../components/BrandLogo';
 
 type Navigation = { navigate: (screen: string) => void };
 export function HomeScreen({ navigation }: { navigation: Navigation }) {
@@ -8,7 +9,7 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.top}>
         <View>
-          <Text style={styles.wordmark}>TÉCAP</Text>
+          <BrandLogo size='medium' />
           <Text style={styles.location}>⌖ Rennes · ce soir · 18+</Text>
         </View>
         <Text style={styles.bell}>♧</Text>
@@ -59,7 +60,6 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
 const styles = StyleSheet.create({
   container: { backgroundColor: colors.canvas, padding: spacing.lg, paddingTop: 28, flexGrow: 1 },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  wordmark: { color: colors.text, fontSize: 26, fontWeight: '900', letterSpacing: 1.4 },
   location: { color: colors.muted, fontSize: 10, marginTop: 9 },
   bell: { color: colors.mutedStrong, fontSize: 24 },
   title: {

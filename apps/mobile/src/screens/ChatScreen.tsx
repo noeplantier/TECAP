@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { demoMessages, demoPhotos } from '../lib/demo';
 import { colors, radius, spacing } from '../theme';
+import { BrandLogo } from '../components/BrandLogo';
 type Navigation = { navigate: (screen: string) => void };
 export function ChatScreen({ navigation }: { navigation: Navigation }) {
   const [text, setText] = useState('');
@@ -13,8 +14,9 @@ export function ChatScreen({ navigation }: { navigation: Navigation }) {
         </Pressable>
         <Image source={{ uri: demoPhotos.alex }} style={styles.headerAvatar} />
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>Messages</Text>
-          <Text style={styles.subtitle}>Alex, 27 · en ligne</Text>
+          <BrandLogo size='small' />
+          <Text style={styles.title}>Alex, 27</Text>
+          <Text style={styles.subtitle}>En ligne · Messages</Text>
         </View>
         <Text style={styles.more}>♢</Text>
       </View>

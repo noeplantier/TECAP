@@ -1,6 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { demoPhotos } from '../lib/demo';
 import { colors, glow, radius, spacing } from '../theme';
+import { BrandLogo } from '../components/BrandLogo';
 type Navigation = { navigate: (screen: string) => void };
 export function MatchScreen({ navigation }: { navigation: Navigation }) {
   return (
@@ -9,7 +10,7 @@ export function MatchScreen({ navigation }: { navigation: Navigation }) {
         <Pressable onPress={() => navigation.navigate('Discover')}>
           <Text style={styles.back}>‹</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>Découvrir</Text>
+        <BrandLogo size='small' />
         <Text style={styles.more}>ⓘ</Text>
       </View>
       <View style={styles.content}>

@@ -1,6 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { demoPhotos } from '../lib/demo';
 import { colors, glow, radius, spacing } from '../theme';
+import { BrandLogo } from '../components/BrandLogo';
 
 type Navigation = { navigate: (screen: string) => void };
 
@@ -11,7 +12,10 @@ export function IncomingRequestScreen({ navigation }: { navigation: Navigation }
         <Pressable onPress={() => navigation.navigate('Chat')} accessibilityRole='button'>
           <Text style={styles.back}>‹</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>NOUVELLE DEMANDE</Text>
+        <View style={styles.brandHeader}>
+          <BrandLogo size='small' />
+          <Text style={styles.headerTitle}>NOUVELLE DEMANDE</Text>
+        </View>
         <Text style={styles.more}>•••</Text>
       </View>
       <View style={styles.content}>
@@ -53,6 +57,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { color: colors.text, fontSize: 32 },
   headerTitle: { color: colors.mutedStrong, fontSize: 10, letterSpacing: 1.3, fontWeight: '800' },
+  brandHeader: { alignItems: 'center', gap: 2 },
   more: { color: colors.mutedStrong, fontSize: 15 },
   content: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 55 },
   orbit: {

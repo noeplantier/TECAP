@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { demoVenues } from '../lib/demo';
 import { colors, radius, spacing } from '../theme';
+import { BrandLogo } from '../components/BrandLogo';
 type Navigation = { navigate: (screen: string) => void };
 export function MapScreen({ navigation }: { navigation: Navigation }) {
   return (
@@ -9,7 +10,10 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
         <Pressable onPress={() => navigation.navigate('Home')}>
           <Text style={styles.back}>‹</Text>
         </Pressable>
-        <Text style={styles.title}>Rennes, ce soir</Text>
+        <View style={styles.brandHeader}>
+          <BrandLogo size='small' />
+          <Text style={styles.context}>RENNES · CE SOIR</Text>
+        </View>
         <Text style={styles.more}>•••</Text>
       </View>
       <View style={styles.filters}>
@@ -49,6 +53,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { color: colors.text, fontSize: 32 },
   title: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  brandHeader: { alignItems: 'center', gap: 2 },
+  context: { color: colors.gold, fontSize: 7, letterSpacing: 1.2, fontWeight: '900' },
   more: { color: colors.mutedStrong },
   filters: { flexDirection: 'row', gap: 8, marginVertical: 17 },
   filter: {

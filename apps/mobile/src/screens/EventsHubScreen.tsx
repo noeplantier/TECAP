@@ -1,6 +1,7 @@
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { demoPhotos, demoVenues } from '../lib/demo';
 import { colors, glow, radius, spacing } from '../theme';
+import { BrandLogo } from '../components/BrandLogo';
 
 type Navigation = { navigate: (screen: string) => void };
 export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
@@ -8,9 +9,7 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.logo}>
-            TÉ<Text style={styles.logoAccent}>CAP</Text>
-          </Text>
+          <BrandLogo size='medium' />
           <Text style={styles.location}>⌖ Rennes · ce soir</Text>
         </View>
         <Text style={styles.info}>ⓘ</Text>
@@ -93,8 +92,6 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  logo: { color: colors.text, fontSize: 27, fontWeight: '900', letterSpacing: 1 },
-  logoAccent: { color: colors.gold },
   location: { color: colors.muted, fontSize: 10, marginTop: 6 },
   info: { color: colors.text, fontSize: 22 },
   title: { color: colors.text, fontSize: 32, lineHeight: 35, fontWeight: '900', marginTop: 26 },

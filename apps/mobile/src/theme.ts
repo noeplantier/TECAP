@@ -18,10 +18,19 @@ export const colors = {
   danger: '#F28A9F',
   line: '#3B294B',
   lineBright: '#FF5CC4',
+  overlay: 'rgba(5,5,11,.72)',
+  pinkWash: 'rgba(255,46,173,.12)',
+  goldWash: 'rgba(255,211,106,.11)',
 };
 
 export const spacing = { xs: 6, sm: 10, md: 14, lg: 20, xl: 28, xxl: 36 };
 export const radius = { sm: 10, md: 14, lg: 20, pill: 999 };
+export const typography = {
+  display: { fontSize: 32, lineHeight: 36, fontWeight: '900' as const },
+  title: { fontSize: 20, lineHeight: 24, fontWeight: '800' as const },
+  body: { fontSize: 13, lineHeight: 19 },
+  caption: { fontSize: 10, lineHeight: 14 },
+};
 
 export const glow = {
   pink: {

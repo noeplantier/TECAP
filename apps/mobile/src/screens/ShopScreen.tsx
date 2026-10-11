@@ -1,6 +1,7 @@
 import { goToDiscover } from '../navigation/routes';
 import { useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { fetchBackendEntitlements } from '../lib/backend';
 import { demoCommerce } from '../lib/commerce';
@@ -8,7 +9,7 @@ import { boostFeatures, demoPhotos, inviteFeatures, premiumFeatures } from '../l
 import { isBackendEnabled } from '../lib/runtime';
 import { useAppStore } from '../state/useAppStore';
 import type { OfferId } from '../state/useAppStore';
-import { colors, glow, radius, spacing } from '../theme';
+import { colors, glow, gradients, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
 
 type Mode = 'invite' | 'premium' | 'boost';
@@ -21,6 +22,7 @@ const productCopy = {
     subtitle: 'Envoie une invitation spéciale au profil qui te plaît vraiment.',
     cta: 'Envoyer une invitation',
     hero: demoPhotos.night,
+    accent: 'pink' as const,
   },
   premium: {
     eyebrow: 'PASSE EN PREMIUM',
@@ -30,6 +32,7 @@ const productCopy = {
       'Découvre qui sort, où et quand, et rencontre des personnes qui partagent tes soirées.',
     cta: 'Passer en Premium',
     hero: demoPhotos.night,
+    accent: 'gold' as const,
   },
   boost: {
     eyebrow: 'BOOSTE TON PROFIL',
@@ -38,6 +41,7 @@ const productCopy = {
     subtitle: 'Sois plus visible pendant 1h et multiplie tes chances de rencontres.',
     cta: 'Activer mon Boost (1h)',
     hero: demoPhotos.night,
+    accent: 'gold' as const,
   },
 };
 
@@ -94,9 +98,18 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
           <Pressable
             key={item}
             onPress={() => selectMode(item)}
-            style={[styles.mode, mode === item && styles.modeActive]}
+            style={[
+              styles.mode,
+              mode === item && (item === 'invite' ? styles.modeActive : styles.modeActiveGold),
+            ]}
           >
-            <Text style={[styles.modeText, mode === item && styles.modeTextActive]}>
+            <Text
+              style={[
+                styles.modeText,
+                mode === item &&
+                  (item === 'invite' ? styles.modeTextActive : styles.modeTextActiveGold),
+              ]}
+            >
               {item === 'invite' ? '♡ Invitation' : item === 'premium' ? '♛ Premium' : '↯ Boost'}
             </Text>
           </Pressable>
@@ -111,7 +124,7 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
           </Text>
         </View>
       )}
-      <View style={styles.hero}>
+      <View style={[styles.hero, copy.accent === 'gold' ? styles.heroGold : styles.heroPink]}>
         <Image source={{ uri: copy.hero }} style={styles.heroImage} />
         <View style={styles.heroShade} />
         <View style={styles.heroCopy}>
@@ -119,7 +132,9 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
           <Text style={styles.title}>
             {copy.title}
             {`\n`}
-            <Text style={styles.titleAccent}>{copy.titleAccent}</Text>
+            <Text style={[styles.titleAccent, copy.accent === 'gold' && styles.titleAccentGold]}>
+              {copy.titleAccent}
+            </Text>
           </Text>
           <Text style={styles.subtitle}>{copy.subtitle}</Text>
         </View>
@@ -129,9 +144,11 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
         {features.map((feature) => (
           <View key={feature.title} style={styles.featureRow}>
             <View
-              style={[styles.featureIcon, mode === 'premium' ? styles.goldGlow : styles.pinkGlow]}
+              style={[styles.featureIcon, mode === 'invite' ? styles.pinkGlow : styles.goldGlow]}
             >
-              <Text style={styles.featureIconText}>{feature.icon}</Text>
+              <Text style={[styles.featureIconText, mode !== 'invite' && styles.featureIconGold]}>
+                {feature.icon}
+              </Text>
             </View>
             <View style={styles.featureCopy}>
               <Text style={styles.featureTitle}>{feature.title}</Text>
@@ -141,17 +158,17 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
         ))}
       </View>
       <OfferSelector mode={mode} selected={selected} onSelect={setSelected} />
-      <Pressable
-        onPress={buy}
-        style={[
-          styles.cta,
-          mode === 'premium' ? styles.ctaGold : styles.ctaPink,
-          mode === 'premium' && glow.gold,
-        ]}
-      >
-        <Text style={styles.ctaText}>
-          {copy.cta} <Text style={styles.ctaArrow}>›</Text>
-        </Text>
+      <Pressable onPress={buy} style={styles.ctaShell}>
+        <LinearGradient
+          colors={mode === 'invite' ? gradients.primaryCta : gradients.premiumCta}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.cta, mode === 'invite' ? glow.pink : glow.gold]}
+        >
+          <Text style={styles.ctaText}>
+            {copy.cta} <Text style={styles.ctaArrow}>›</Text>
+          </Text>
+        </LinearGradient>
       </Pressable>
       {mode === 'invite' && (
         <Pressable onPress={() => goToDiscover(navigation, 'Invitation')} style={styles.secondary}>
@@ -257,11 +274,21 @@ function OfferSelector({
         <Pressable
           key={offer.id}
           onPress={() => onSelect(offer.id)}
-          style={[styles.offer, selected === offer.id && styles.offerSelected]}
+          style={[
+            styles.offer,
+            selected === offer.id &&
+              (mode === 'invite' ? styles.offerSelected : styles.offerSelectedGold),
+          ]}
         >
-          {offer.badge && <Text style={styles.badge}>{offer.badge}</Text>}
-          <View style={styles.radio}>
-            {selected === offer.id && <View style={styles.radioOn} />}
+          {offer.badge && (
+            <Text style={[styles.badge, mode !== 'invite' && styles.badgeGold]}>{offer.badge}</Text>
+          )}
+          <View
+            style={[styles.radio, selected === offer.id && mode !== 'invite' && styles.radioGold]}
+          >
+            {selected === offer.id && (
+              <View style={[styles.radioOn, mode !== 'invite' && styles.radioOnGold]} />
+            )}
           </View>
           <Text style={styles.offerName}>{offer.name}</Text>
           <Text style={styles.offerPrice}>{offer.price}</Text>
@@ -300,9 +327,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 8,
   },
-  modeActive: { borderColor: colors.pink, backgroundColor: 'rgba(255,46,173,.12)' },
+  modeActive: {
+    borderColor: colors.hotPink,
+    backgroundColor: colors.pinkWash,
+    shadowColor: colors.pinkElectric,
+    shadowOpacity: 0.65,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 9,
+  },
+  modeActiveGold: {
+    borderColor: colors.goldHot,
+    backgroundColor: colors.goldWash,
+    shadowColor: colors.goldHot,
+    shadowOpacity: 0.55,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 9,
+  },
   modeText: { color: colors.muted, fontSize: 10 },
   modeTextActive: { color: colors.text, fontWeight: '800' },
+  modeTextActiveGold: { color: colors.goldWhite, fontWeight: '900' },
   hero: {
     height: 245,
     borderRadius: radius.lg,
@@ -310,8 +355,10 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: colors.surface,
   },
+  heroPink: { borderColor: colors.hotPink, borderWidth: 1, ...glow.pink },
+  heroGold: { borderColor: colors.goldHot, borderWidth: 1, ...glow.gold },
   heroImage: { width: '100%', height: '100%' },
-  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,5,11,.58)' },
+  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,3,8,.48)' },
   heroCopy: { position: 'absolute', left: 18, right: 18, bottom: 18 },
   eyebrow: {
     color: colors.gold,
@@ -321,7 +368,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   title: { color: colors.text, fontSize: 29, lineHeight: 32, fontWeight: '900' },
-  titleAccent: { color: colors.pink },
+  titleAccent: { color: colors.pinkLight, textShadowColor: colors.pinkGlow, textShadowRadius: 12 },
+  titleAccentGold: {
+    color: colors.goldLight,
+    textShadowColor: colors.goldGlow,
+    textShadowRadius: 12,
+  },
   subtitle: { color: colors.text, fontSize: 12, lineHeight: 18, marginTop: 10 },
   comparison: {
     backgroundColor: colors.surface,
@@ -352,7 +404,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: 11,
   },
-  comparisonPremium: { borderColor: colors.gold, backgroundColor: 'rgba(255,211,106,.08)' },
+  comparisonPremium: {
+    borderColor: colors.goldHot,
+    backgroundColor: colors.goldWash,
+    ...glow.gold,
+  },
   comparisonColumnTitle: { color: colors.text, fontSize: 12, fontWeight: '800' },
   comparisonValue: { color: colors.pink, fontSize: 28, fontWeight: '900', marginTop: 7 },
   comparisonUnit: { color: colors.text, fontSize: 9, fontWeight: '900', marginTop: -3 },
@@ -383,20 +439,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceStrong,
   },
   pinkGlow: {
-    shadowColor: colors.pink,
-    shadowOpacity: 0.5,
-    shadowRadius: 14,
+    shadowColor: colors.pinkElectric,
+    shadowOpacity: 0.72,
+    shadowRadius: 18,
     shadowOffset: { width: 0, height: 0 },
     elevation: 8,
   },
   goldGlow: {
-    shadowColor: colors.gold,
-    shadowOpacity: 0.4,
-    shadowRadius: 14,
+    shadowColor: colors.goldHot,
+    shadowOpacity: 0.62,
+    shadowRadius: 18,
     shadowOffset: { width: 0, height: 0 },
     elevation: 8,
   },
-  featureIconText: { color: colors.pink, fontSize: 23, fontWeight: '800' },
+  featureIconText: {
+    color: colors.pinkLight,
+    fontSize: 23,
+    fontWeight: '900',
+    textShadowColor: colors.pinkGlow,
+    textShadowRadius: 10,
+  },
+  featureIconGold: { color: colors.goldLight, textShadowColor: colors.goldGlow },
   featureCopy: { flex: 1 },
   featureTitle: { color: colors.text, fontSize: 13, fontWeight: '800' },
   featureBody: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 3 },
@@ -412,9 +475,14 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   offerSelected: {
-    borderColor: colors.pink,
-    backgroundColor: 'rgba(255,46,173,.08)',
+    borderColor: colors.hotPink,
+    backgroundColor: colors.pinkWash,
     ...glow.pink,
+  },
+  offerSelectedGold: {
+    borderColor: colors.goldHot,
+    backgroundColor: colors.goldWash,
+    ...glow.gold,
   },
   badge: {
     position: 'absolute',
@@ -428,6 +496,7 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '800',
   },
+  badgeGold: { backgroundColor: colors.goldHot, color: colors.ivoryText },
   radio: {
     width: 18,
     height: 18,
@@ -438,13 +507,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  radioGold: { borderColor: colors.goldHot },
   radioOn: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.pink },
+  radioOnGold: { backgroundColor: colors.goldHot },
   offerName: { color: colors.mutedStrong, fontSize: 11, marginTop: 3 },
   offerPrice: { color: colors.text, fontSize: 20, fontWeight: '900', marginTop: 4 },
   offerDetail: { color: colors.muted, fontSize: 9, marginTop: 4 },
-  cta: { borderRadius: radius.pill, alignItems: 'center', padding: 16, marginTop: 17 },
-  ctaPink: { backgroundColor: colors.pink },
-  ctaGold: { backgroundColor: colors.gold },
+  ctaShell: { borderRadius: radius.pill, overflow: 'hidden', marginTop: 17 },
+  cta: { borderRadius: radius.pill, alignItems: 'center', padding: 16 },
   ctaText: { color: colors.ivoryText, fontSize: 15, fontWeight: '900' },
   ctaArrow: { fontSize: 23 },
   secondary: { alignItems: 'center', paddingVertical: 13 },

@@ -1,53 +1,114 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, radius } from '../theme';
-import type { HotspotMarker } from './MapCanvas.native';
+import { useEffect, useRef } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import L from 'leaflet';
+import { colors, glow, radius } from '../theme';
+import type { MapCanvasProps, MapMarker } from './mapTypes';
 
-type Props = {
-  initialRegion: { latitude: number; longitude: number };
-  markers: HotspotMarker[];
+const categoryIcon: Record<MapMarker['category'], string> = {
+  tecap_event: '♛',
+  bar: '🍸',
+  restaurant: '🍽',
+  club: '✦',
+  concert: '♫',
+  hotspot: '◎',
+  user_plan: '♡',
 };
 
-export function MapCanvas({ markers }: Props) {
+const categoryClass: Record<MapMarker['accent'], string> = {
+  pink: 'tecap-marker-pink',
+  gold: 'tecap-marker-gold',
+  magenta: 'tecap-marker-magenta',
+};
+
+function installTecapMapStyles() {
+  if (document.getElementById('tecap-leaflet-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'tecap-leaflet-styles';
+  style.textContent = `
+    .tecap-map-root .leaflet-control-zoom { border: 1px solid #FF5AD1; box-shadow: 0 0 18px rgba(255,37,184,.35); }
+    .tecap-map-root .leaflet-control-zoom a { background: #0D0812; color: #FFF9FE; border-color: #572044; }
+    .tecap-map-root .leaflet-control-zoom a:hover { background: #35102C; color: #FFE7A3; }
+    .tecap-map-root .leaflet-control-attribution { background: rgba(5,3,8,.78); color: #B7A9B7; }
+    .tecap-map-root .leaflet-control-attribution a { color: #FF9CE4; }
+    .tecap-map-root .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(.72) saturate(1.18); }
+    .tecap-map-root .leaflet-tooltip { background: #0D0812; border: 1px solid #FF5AD1; color: #FFF9FE; box-shadow: 0 0 16px rgba(255,37,184,.32); }
+    .tecap-map-root .leaflet-tooltip-top:before { border-top-color: #FF5AD1; }
+    .tecap-leaflet-marker { background: transparent; border: 0; }
+    .tecap-marker-shell { width: 46px; height: 46px; border-radius: 24px; display: grid; place-items: center; position: relative; box-sizing: border-box; font-size: 17px; color: #FFF9FE; font-weight: 900; border: 2px solid #FF9CE4; background: #FF0FAF; box-shadow: 0 0 10px #FF25B8, 0 0 25px rgba(255,37,184,.65); }
+    .tecap-marker-shell.tecap-marker-gold { background: #FFD76A; color: #261405; border-color: #FFF3C7; box-shadow: 0 0 10px #FFD76A, 0 0 25px rgba(255,200,77,.55); }
+    .tecap-marker-shell.tecap-marker-magenta { background: #9D0879; border-color: #FF5AD1; }
+    .tecap-marker-count { position: absolute; right: -9px; top: -9px; min-width: 19px; height: 19px; padding: 0 4px; display: grid; place-items: center; border-radius: 12px; box-sizing: border-box; background: #050308; border: 1px solid #FFF9FE; color: #FFF9FE; font-size: 9px; }
+  `;
+  document.head.appendChild(style);
+}
+
+export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 }: MapCanvasProps) {
+  const mapElement = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markerLayerRef = useRef<L.LayerGroup | null>(null);
+  const center: [number, number] = [initialRegion.latitude, initialRegion.longitude];
+
+  useEffect(() => {
+    if (!mapElement.current || mapRef.current) return;
+    installTecapMapStyles();
+    const map = L.map(mapElement.current, {
+      zoomControl: true,
+      attributionControl: true,
+      minZoom: 11,
+      maxZoom: 18,
+    }).setView(center, 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(map);
+    markerLayerRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
+    window.setTimeout(() => map.invalidateSize(), 0);
+    return () => {
+      markerLayerRef.current?.clearLayers();
+      markerLayerRef.current = null;
+      map.remove();
+      mapRef.current = null;
+    };
+  }, [center[0], center[1]]);
+
+  useEffect(() => {
+    const layer = markerLayerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    markers.forEach((marker) => {
+      const icon = L.divIcon({
+        className: 'tecap-leaflet-marker',
+        html: `<span class="tecap-marker-shell ${categoryClass[marker.accent]}">${categoryIcon[marker.category]}<b class="tecap-marker-count">${marker.participantCount}</b></span>`,
+        iconSize: [46, 46],
+        iconAnchor: [23, 23],
+      });
+      const leafletMarker = L.marker([marker.latitude, marker.longitude], { icon });
+      leafletMarker.bindTooltip(`${marker.name} · ${marker.subtitle}`, {
+        direction: 'top',
+        offset: [0, -18],
+      });
+      leafletMarker.on('click', () => onMarkerPress?.(marker));
+      leafletMarker.addTo(layer);
+    });
+  }, [markers, onMarkerPress]);
+
+  const recenter = () => mapRef.current?.setView(center, 14, { animate: true });
+
   return (
-    <View style={styles.wrapper}>
-      <ScrollView
-        horizontal
-        contentContainerStyle={styles.scrollContent}
-        maximumZoomScale={2.5}
-        minimumZoomScale={1}
-        bouncesZoom
-      >
-        <ScrollView
-          contentContainerStyle={styles.canvas}
-          maximumZoomScale={2.5}
-          minimumZoomScale={1}
-        >
-          <View style={styles.grid} />
-          <Text style={styles.city}>SAINT-BRIEUC · CARTE DÉMO</Text>
-          <Text style={[styles.street, styles.streetOne]}>Centre-ville</Text>
-          <Text style={[styles.street, styles.streetTwo]}>Zone événementielle</Text>
-          <Text style={[styles.street, styles.streetThree]}>Quartier nocturne</Text>
-          {markers.map((marker, index) => (
-            <Pressable
-              key={marker.id}
-              accessibilityRole='button'
-              accessibilityLabel={`${marker.title}, ${marker.subtitle}`}
-              style={[
-                styles.marker,
-                marker.accent === 'gold' && styles.markerGold,
-                { left: 78 + (index % 3) * 135, top: 116 + Math.floor(index / 3) * 70 },
-              ]}
-            >
-              <Text style={styles.markerIcon}>✦</Text>
-              <Text style={styles.markerTitle}>{marker.title}</Text>
-              <Text style={styles.markerSubtitle}>{marker.subtitle}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </ScrollView>
+    <View
+      style={[styles.wrapper, { height }]}
+      accessibilityLabel='Carte TÉCAP interactive de Saint-Brieuc'
+    >
+      <View style={styles.mapRoot} nativeID='tecap-map-root'>
+        <div ref={mapElement} className='tecap-map-root' style={styles.webMap} />
+      </View>
+      <Pressable onPress={recenter} style={styles.recenter} accessibilityLabel='Recentrer la carte'>
+        <Text style={styles.recenterText}>⌾</Text>
+      </Pressable>
       <View pointerEvents='none' style={styles.privacyBadge}>
         <Text style={styles.privacyText}>
-          Pince / zoom · hotspots agrégés · aucune adresse privée
+          Carte réelle · hotspots agrégés · aucune adresse privée
         </Text>
       </View>
     </View>
@@ -56,53 +117,30 @@ export function MapCanvas({ markers }: Props) {
 
 const styles = StyleSheet.create({
   wrapper: {
-    height: 280,
     borderRadius: radius.lg,
     overflow: 'hidden',
     backgroundColor: colors.surfaceStrong,
-  },
-  scrollContent: { minWidth: '100%' },
-  canvas: { width: 560, height: 360, backgroundColor: colors.surfaceStrong, position: 'relative' },
-  grid: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.22,
-    backgroundColor: '#1B111B',
-    borderColor: colors.line,
-    borderWidth: 18,
-  },
-  city: {
-    position: 'absolute',
-    top: 20,
-    left: 20,
-    color: colors.gold,
-    fontSize: 9,
-    letterSpacing: 1.4,
-    fontWeight: '900',
-  },
-  street: {
-    position: 'absolute',
-    color: colors.mutedStrong,
-    fontSize: 10,
-    borderBottomColor: colors.line,
-    borderBottomWidth: 1,
-    paddingBottom: 6,
-  },
-  streetOne: { top: 76, left: 22 },
-  streetTwo: { top: 190, left: 260 },
-  streetThree: { top: 300, left: 34 },
-  marker: {
-    position: 'absolute',
-    width: 120,
-    padding: 8,
-    borderRadius: radius.md,
-    backgroundColor: colors.pinkWash,
-    borderColor: colors.pink,
+    borderColor: colors.lineBright,
     borderWidth: 1,
+    ...glow.pink,
   },
-  markerGold: { backgroundColor: colors.goldWash, borderColor: colors.gold },
-  markerIcon: { color: colors.pink, fontSize: 18, fontWeight: '900' },
-  markerTitle: { color: colors.text, fontSize: 10, fontWeight: '900', marginTop: 2 },
-  markerSubtitle: { color: colors.mutedStrong, fontSize: 8, marginTop: 2 },
+  mapRoot: { flex: 1 },
+  webMap: { width: '100%', height: '100%' },
+  recenter: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.overlay,
+    borderColor: colors.goldHot,
+    borderWidth: 1,
+    ...glow.gold,
+  },
+  recenterText: { color: colors.goldLight, fontSize: 23, fontWeight: '900' },
   privacyBadge: {
     position: 'absolute',
     left: 10,

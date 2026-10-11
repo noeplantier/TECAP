@@ -14,7 +14,22 @@ export type LocationResult =
 
 export async function requestApproximateLocation(): Promise<LocationResult> {
   if (Platform.OS === 'web') {
-    return { status: 'denied', reason: 'unavailable' };
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      return { status: 'denied', reason: 'unavailable' };
+    }
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) =>
+          resolve({
+            status: 'granted',
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracyM: position.coords.accuracy ?? null,
+          }),
+        () => resolve({ status: 'denied', reason: 'permission' }),
+        { enableHighAccuracy: false, maximumAge: 300_000, timeout: 8_000 },
+      );
+    });
   }
   try {
     const permission = await Location.requestForegroundPermissionsAsync();

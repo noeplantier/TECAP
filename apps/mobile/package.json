@@ -5,6 +5,9 @@
   "main": "./index.js",
   "scripts": {
     "start": "expo start",
+    "start:web": "expo start --web",
+    "export:web": "expo export --platform web",
+    "build:web": "pnpm run export:web",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "build": "expo export",

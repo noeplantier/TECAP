@@ -17,6 +17,9 @@
       "package": "com.tecap.app",
       "permissions": ["POST_NOTIFICATIONS", "ACCESS_COARSE_LOCATION"]
     },
+    "web": {
+      "bundler": "metro"
+    },
     "plugins": [
       "expo-notifications",
       [

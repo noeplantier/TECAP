@@ -2,13 +2,15 @@ import {
   createNavigationContainerRef,
   NavigationContainer,
   DarkTheme,
+  type NavigatorScreenParams,
 } from '@react-navigation/native';
+import type { LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthScreen } from '../screens/AuthScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -39,11 +41,89 @@ const MessagesStack = createNativeStackNavigator();
 const ProfileStack = createNativeStackNavigator();
 const ShopStack = createNativeStackNavigator();
 
+type DiscoverParamList = {
+  DiscoverHome: undefined;
+  Home: undefined;
+  Match: undefined;
+  Invitation: undefined;
+  ProfileDetail: { profileId?: string } | undefined;
+};
+type OutingsParamList = {
+  OutingsHome: undefined;
+  Map: undefined;
+  EveningStatus: undefined;
+  Night: undefined;
+  Pass: undefined;
+};
+type MessagesParamList = {
+  MessagesHome: undefined;
+  Conversation: { matchId: string };
+  IncomingRequest: { requestId?: string } | undefined;
+};
+type ProfileParamList = {
+  ProfileHome: undefined;
+  Notifications: undefined;
+  Safety: undefined;
+};
+type ShopParamList = { ShopHome: undefined };
+type MainTabParamList = {
+  DiscoverTab: NavigatorScreenParams<DiscoverParamList>;
+  OutingsTab: NavigatorScreenParams<OutingsParamList>;
+  MessagesTab: NavigatorScreenParams<MessagesParamList>;
+  ProfileTab: NavigatorScreenParams<ProfileParamList>;
+  ShopTab: NavigatorScreenParams<ShopParamList>;
+};
 type RootParamList = {
   Auth: undefined;
-  MainTabs: { screen: string; params?: object };
+  MainTabs: NavigatorScreenParams<MainTabParamList>;
 };
 const navigationRef = createNavigationContainerRef<RootParamList>();
+const linking: LinkingOptions<RootParamList> = {
+  prefixes: [],
+  config: {
+    screens: {
+      Auth: 'auth',
+      MainTabs: {
+        path: '',
+        screens: {
+          DiscoverTab: {
+            path: 'discover',
+            screens: {
+              DiscoverHome: '',
+              Home: 'home',
+              Match: 'match',
+              Invitation: 'invitation',
+              ProfileDetail: 'profile/:profileId',
+            },
+          },
+          OutingsTab: {
+            path: 'outings',
+            screens: {
+              OutingsHome: '',
+              Map: 'map',
+              EveningStatus: 'evening-status',
+              Night: 'night',
+              Pass: 'pass',
+            },
+          },
+          MessagesTab: {
+            path: 'messages',
+            screens: {
+              MessagesHome: '',
+              Conversation: 'conversation/:matchId',
+              IncomingRequest: 'request',
+            },
+          },
+          ProfileTab: {
+            path: 'profile',
+            screens: { ProfileHome: '', Notifications: 'notifications', Safety: 'safety' },
+          },
+          ShopTab: { path: 'shop', screens: { ShopHome: '' } },
+        },
+      },
+    },
+  },
+};
 
 function navigateFromNotification(data: Record<string, unknown>) {
   if (!navigationRef.isReady()) return;
@@ -219,7 +299,7 @@ function MainTabs() {
 export function AppNavigator() {
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || Platform.OS === 'web') return;
     const responseSubscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const data = response.notification.request.content.data;
@@ -238,7 +318,11 @@ export function AppNavigator() {
     return () => responseSubscription.remove();
   }, [isAuthenticated]);
   return (
-    <NavigationContainer ref={navigationRef} theme={navigationTheme}>
+    <NavigationContainer
+      ref={navigationRef}
+      linking={Platform.OS === 'web' ? linking : undefined}
+      theme={navigationTheme}
+    >
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           <RootStack.Screen name='Auth' component={AuthScreen} />

@@ -53,6 +53,37 @@ Si Expo affiche `ApiV2Error: The bearer token is invalid`, supprime `EXPO_TOKEN`
 
 Si le bundler affiche `Unable to resolve "../../App" from .../expo/AppEntry.js`, récupère la dernière version de la branche. L’application utilise un point d’entrée local `apps/mobile/index.js` (`main: "./index.js"`) afin d’éviter l’import relatif d’Expo qui peut casser avec les liens symboliques pnpm.
 
+### Déploiement Netlify de l’application mobile Web
+
+La configuration [`netlify.toml`](netlify.toml) à la racine déploie exclusivement `@tecap/mobile` en Expo Web statique. Elle ne référence jamais `apps/admin-web`, qui reste une application séparée pouvant être publiée sur un autre site Netlify.
+
+Paramètres Netlify exacts :
+
+| Paramètre         | Valeur                                                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Repository        | `noeplantier/TECAP`                                                                                                                  |
+| Branch            | `feat/tecap-expo-web-netlify`                                                                                                        |
+| Base directory    | `.`                                                                                                                                  |
+| Build command     | `npm install --global pnpm@9.15.5 && pnpm --version && pnpm install --frozen-lockfile && pnpm --filter @tecap/mobile run export:web` |
+| Publish directory | `apps/mobile/dist`                                                                                                                   |
+| Node              | `22.13.0`                                                                                                                            |
+| pnpm              | `9.15.5`                                                                                                                             |
+
+Le build épingle pnpm avec `npm install --global` plutôt qu’avec `corepack prepare` : l’environnement Node 22 validé ici renvoie une erreur de signature Corepack avant installation. Cette variante conserve exactement pnpm 9.15.5 et a été exécutée avec succès sur le monorepo.
+
+La sortie vérifiée est `apps/mobile/dist` et contient `index.html`, le bundle `_expo/static/js/web/` et `_redirects`. La règle SPA `/* /index.html 200` est définie dans `netlify.toml` et `apps/mobile/public/_redirects`, afin que les rafraîchissements directs ne chargent jamais OPS CONSOLE.
+
+Variables publiques facultatives à créer sur Netlify :
+
+```text
+EXPO_PUBLIC_USE_SUPABASE=true
+EXPO_PUBLIC_SUPABASE_URL=https://bzijrulrqhnwycgmhcti.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<clé publishable/anon>
+EXPO_PUBLIC_APP_ENV=preview
+```
+
+Si elles sont absentes, l’export fonctionne en mode démo. Ne jamais ajouter `SUPABASE_SERVICE_ROLE_KEY`, `EXPO_TOKEN`, les clés APNs, `ONESIGNAL_REST_API_KEY`, `SENTRY_AUTH_TOKEN` ou un secret Stripe dans Netlify ou dans le bundle Web. Après modification d’un ancien site, utiliser **Clear cache and deploy site**.
+
 ## Backend Supabase
 
 1. Créer un projet Supabase.

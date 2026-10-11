@@ -1,0 +1,13 @@
+[build]
+  base = "."
+  command = "npm install --global pnpm@9.15.5 && pnpm --version && pnpm install --frozen-lockfile && pnpm --filter @tecap/mobile run export:web"
+  publish = "apps/mobile/dist"
+
+[build.environment]
+  NODE_VERSION = "22.13.0"
+  PNPM_VERSION = "9.15.5"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

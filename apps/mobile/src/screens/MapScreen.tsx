@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BrandLogo } from '../components/BrandLogo';
 import { type HotspotMarker, MapCanvas } from '../components/MapCanvas';
@@ -119,9 +119,15 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
     const result = await requestApproximateLocation();
     if (result.status === 'denied') {
       setLocationConsent('denied');
+      if (Platform.OS === 'web') {
+        setCity('Saint-Brieuc');
+        setApproximateLocation({ ...simulatedSaintBrieucLocation(), updatedAt: Date.now() });
+      }
       Alert.alert(
         'Position non activée',
-        `Aucun souci : tu peux continuer avec ${city} ou choisir ta ville manuellement. Ta position exacte ne sera jamais affichée.`,
+        Platform.OS === 'web'
+          ? 'Aucun souci : la démo web utilise Saint-Brieuc sans exposer ta position exacte.'
+          : `Aucun souci : tu peux continuer avec ${city} ou choisir ta ville manuellement. Ta position exacte ne sera jamais affichée.`,
       );
       return;
     }
@@ -133,7 +139,7 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
     };
     setLocationConsent('granted');
     setApproximateLocation(next);
-    if (isBackendEnabled) await savePrivateLocation(next);
+    if (isBackendEnabled && Platform.OS !== 'web') await savePrivateLocation(next);
     Alert.alert(
       'Position approximative activée',
       'Elle sert uniquement à améliorer ta zone de découverte. Elle reste privée.',
@@ -145,7 +151,7 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
     const next = { ...simulated, updatedAt: Date.now() };
     setLocationConsent('granted');
     setApproximateLocation(next);
-    if (isBackendEnabled) await savePrivateLocation(next);
+    if (isBackendEnabled && Platform.OS !== 'web') await savePrivateLocation(next);
     Alert.alert(
       'Position de démo activée',
       'Saint-Brieuc est utilisé comme position approximative de démonstration.',

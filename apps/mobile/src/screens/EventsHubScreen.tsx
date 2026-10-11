@@ -1,5 +1,6 @@
 import { goToDiscover } from '../navigation/routes';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { fetchBackendEvents, fetchBackendProfiles, fetchBackendStatus } from '../lib/backend';
 import { demoPhotos, demoVenues } from '../lib/demo';
@@ -13,6 +14,7 @@ import { BrandLogo } from '../components/BrandLogo';
 type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 type VenueItem = { name: string; count: number; type: string; emoji: string };
 export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
+  const isFocused = useIsFocused();
   const city = useAppStore((state) => state.city);
   const outingStatus = useAppStore((state) => state.outingStatus);
   const remoteStatus = useQuery({
@@ -91,12 +93,16 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
             <Text style={styles.mapButtonText}>Ouvrir ↗</Text>
           </Pressable>
         </View>
-        <MapCanvas
-          height={210}
-          initialRegion={{ ...SAINT_BRIEUC_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 }}
-          markers={demoPois}
-          onMarkerPress={() => navigation.navigate('Map')}
-        />
+        {isFocused ? (
+          <MapCanvas
+            height={210}
+            initialRegion={{ ...SAINT_BRIEUC_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 }}
+            markers={demoPois}
+            onMarkerPress={() => navigation.navigate('Map')}
+          />
+        ) : (
+          <View style={styles.mapPlaceholder} />
+        )}
       </View>
       <View style={styles.sectionHead}>
         <Text style={styles.section}>Les lieux du soir</Text>
@@ -197,6 +203,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 4,
     paddingBottom: 10,
+  },
+  mapPlaceholder: {
+    height: 210,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceStrong,
   },
   mapLabel: {
     color: colors.pinkLight,

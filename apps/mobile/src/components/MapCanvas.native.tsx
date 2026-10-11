@@ -40,6 +40,7 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
             title={marker.name}
             description={marker.subtitle}
             onPress={() => onMarkerPress?.(marker)}
+            tracksViewChanges={false}
           >
             <Pressable
               accessibilityRole='button'

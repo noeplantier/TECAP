@@ -56,10 +56,14 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
       attributionControl: true,
       minZoom: 11,
       maxZoom: 18,
+      preferCanvas: true,
     }).setView(center, 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19,
+      updateWhenIdle: true,
+      updateWhenZooming: false,
+      keepBuffer: 1,
     }).addTo(map);
     markerLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;

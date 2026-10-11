@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BrandLogo } from '../components/BrandLogo';
@@ -72,10 +72,15 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<Filter>('all');
   const [selectedPoi, setSelectedPoi] = useState<TecapPoi | null>(null);
+  const realtimeRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const realtimeRefreshKinds = useRef(new Set<'poi' | 'hotspot'>());
   const launchAreasQuery = useQuery({
     queryKey: ['backend-launch-areas'],
     queryFn: fetchBackendLaunchAreas,
     enabled: isBackendEnabled,
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
   });
   const activeArea =
     launchAreasQuery.data?.find((area) => area.name === city) ?? launchAreasQuery.data?.[0];
@@ -84,13 +89,22 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
     queryKey: ['backend-points-of-interest', citySlug],
     queryFn: () => fetchBackendPointsOfInterest(citySlug),
     enabled: isBackendEnabled,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
   });
   const hotspotsQuery = useQuery({
     queryKey: ['backend-hotspots', citySlug],
     queryFn: () => fetchBackendHotspots(citySlug),
     enabled: isBackendEnabled,
+    staleTime: 15_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
-  const backendPois = (poisQuery.data ?? []).map(backendPoiToTecap);
+  const backendPois = useMemo(
+    () => (poisQuery.data ?? []).map(backendPoiToTecap),
+    [poisQuery.data],
+  );
   const fallbackPois = useMemo(() => {
     if (!isBackendEnabled) return demoPois;
     const hotspotPois = (hotspotsQuery.data ?? []).map((hotspot, index): TecapPoi => ({
@@ -110,33 +124,77 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
     }));
     return hotspotPois;
   }, [city, citySlug, hotspotsQuery.data]);
-  const allPois = backendPois.length > 0 ? backendPois : fallbackPois;
-  const visiblePois = allPois.filter((poi) => matchesFilter(poi, filter));
-  const activePeople = visiblePois.reduce((sum, poi) => sum + poi.participantCount, 0);
-  const mapRegion = activeArea
-    ? {
-        latitude: Number(activeArea.center_lat),
-        longitude: Number(activeArea.center_lng),
-        latitudeDelta: 0.12,
-        longitudeDelta: 0.12,
-      }
-    : { ...SAINT_BRIEUC_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 };
+  const allPois = useMemo(
+    () => (backendPois.length > 0 ? backendPois : fallbackPois),
+    [backendPois, fallbackPois],
+  );
+  const visiblePois = useMemo(
+    () => allPois.filter((poi) => matchesFilter(poi, filter)),
+    [allPois, filter],
+  );
+  const activePeople = useMemo(
+    () => visiblePois.reduce((sum, poi) => sum + poi.participantCount, 0),
+    [visiblePois],
+  );
+  const mapRegion = useMemo(
+    () =>
+      activeArea
+        ? {
+            latitude: Number(activeArea.center_lat),
+            longitude: Number(activeArea.center_lng),
+            latitudeDelta: 0.12,
+            longitudeDelta: 0.12,
+          }
+        : { ...SAINT_BRIEUC_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 },
+    [activeArea],
+  );
 
   useEffect(() => {
     if (!isBackendEnabled) return;
+    const scheduleRefresh = (kind: 'poi' | 'hotspot') => {
+      realtimeRefreshKinds.current.add(kind);
+      if (realtimeRefreshTimer.current) return;
+      realtimeRefreshTimer.current = setTimeout(() => {
+        realtimeRefreshTimer.current = null;
+        const pendingKinds = realtimeRefreshKinds.current;
+        realtimeRefreshKinds.current = new Set();
+        if (pendingKinds.has('poi')) {
+          void queryClient.invalidateQueries({
+            queryKey: ['backend-points-of-interest', citySlug],
+          });
+        }
+        if (pendingKinds.has('hotspot')) {
+          void queryClient.invalidateQueries({ queryKey: ['backend-hotspots', citySlug] });
+        }
+      }, 250);
+    };
     const channel = supabase
       .channel(`tecap-map-pois-${citySlug}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'points_of_interest' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['backend-points-of-interest', citySlug] });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'evening_statuses' }, () => {
-        void queryClient.invalidateQueries({ queryKey: ['backend-hotspots', citySlug] });
-      })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'points_of_interest',
+          filter: `city_slug=eq.${citySlug}`,
+        },
+        () => scheduleRefresh('poi'),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'evening_statuses', filter: `city=eq.${city}` },
+        () => scheduleRefresh('hotspot'),
+      )
       .subscribe();
     return () => {
+      if (realtimeRefreshTimer.current) {
+        clearTimeout(realtimeRefreshTimer.current);
+        realtimeRefreshTimer.current = null;
+      }
+      realtimeRefreshKinds.current.clear();
       void supabase.removeChannel(channel);
     };
-  }, [citySlug, queryClient]);
+  }, [city, citySlug, queryClient]);
 
   const applyApproximateLocation = async () => {
     const result = await requestApproximateLocation();

@@ -72,7 +72,7 @@ Le dépôt a été vérifié et déployé sur le projet Supabase TÉCAP de déve
 
 - référence : `bzijrulrqhnwycgmhcti` ;
 - région : `ca-central-1` ;
-- migrations appliquées : `init_p0`, `social_mvp` ;
+- migrations appliquées : `init_p0`, `social_mvp`, `backend_actions` ;
 - tables publiques : RLS activée sur toutes les tables créées ;
 - Edge Functions actives : `validate-pass` et `expire-statuses`, toutes deux avec JWT obligatoire ;
 - types TypeScript du package `@tecap/supabase-types` synchronisés avec le schéma distant.
@@ -88,6 +88,8 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=<clé publishable/anon récupérée dans Supabase>
 ```
 
 Le mode démo reste disponible si `EXPO_PUBLIC_USE_SUPABASE=false` ou si les clés sont absentes.
+
+Quand `EXPO_PUBLIC_USE_SUPABASE=true`, l’application utilise Supabase pour l’OTP, les profils de la même ville, les swipes, les quotas de likes via RPC transactionnelle, les matches, les messages avec Realtime, les statuts de soirée, les événements publiés et la lecture des entitlements. Le mode local reste un fallback explicite pour les maquettes et les tests sans réseau.
 
 ### Seed développement idempotent
 

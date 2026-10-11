@@ -177,6 +177,7 @@ export type Database = {
     Views: Record<string, never>;
     Functions: {
       validate_pass: { Args: { pass_id: string; scan_source?: string }; Returns: Json };
+      record_swipe: { Args: { target_id: string; direction: string }; Returns: Json };
       expire_evening_statuses: { Args: Record<string, never>; Returns: number };
       is_staff_or_admin: { Args: Record<string, never>; Returns: boolean };
     };

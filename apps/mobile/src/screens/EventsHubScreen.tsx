@@ -1,19 +1,57 @@
 import { goToDiscover } from '../navigation/routes';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
+import { fetchBackendEvents, fetchBackendProfiles, fetchBackendStatus } from '../lib/backend';
 import { demoPhotos, demoVenues } from '../lib/demo';
+import { isBackendEnabled } from '../lib/runtime';
 import { useAppStore } from '../state/useAppStore';
 import { colors, glow, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
 
 type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
+type VenueItem = { name: string; count: number; type: string; emoji: string };
 export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
+  const city = useAppStore((state) => state.city);
   const outingStatus = useAppStore((state) => state.outingStatus);
+  const remoteStatus = useQuery({
+    queryKey: ['backend-evening-status'],
+    queryFn: fetchBackendStatus,
+    enabled: isBackendEnabled,
+  });
+  const remoteProfiles = useQuery({
+    queryKey: ['discover-profiles', isBackendEnabled],
+    queryFn: () => fetchBackendProfiles(),
+    enabled: isBackendEnabled,
+  });
+  const remoteEvents = useQuery({
+    queryKey: ['backend-events'],
+    queryFn: fetchBackendEvents,
+    enabled: isBackendEnabled,
+  });
+  const displayStatus = isBackendEnabled ? remoteStatus.data : outingStatus;
+  const displayStatusLabel = isBackendEnabled
+    ? remoteStatus.data?.status_type
+    : outingStatus?.activityType;
+  const displayVenue = isBackendEnabled ? remoteStatus.data?.venue : outingStatus?.venue;
+  const venueCounts = (remoteProfiles.data ?? []).reduce<Map<string, number>>((counts, profile) => {
+    if (profile.venue) counts.set(profile.venue, (counts.get(profile.venue) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+  const venues: VenueItem[] = isBackendEnabled
+    ? Array.from(venueCounts.entries()).map(([name, count]) => ({
+        name,
+        count,
+        type: 'membres présents',
+        emoji: '✦',
+      }))
+    : demoVenues;
+  const event = remoteEvents.data?.[0];
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <View>
           <BrandLogo size='medium' />
-          <Text style={styles.location}>⌖ Rennes · ce soir</Text>
+          <Text style={styles.location}>⌖ {city} · ce soir</Text>
         </View>
         <Text style={styles.info}>ⓘ</Text>
       </View>
@@ -24,13 +62,13 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
       <Text style={styles.subtitle}>
         Découvre les intentions de sortie et les lieux indiqués volontairement par les membres.
       </Text>
-      {outingStatus && (
+      {displayStatus && (
         <Pressable onPress={() => navigation.navigate('EveningStatus')} style={styles.myStatus}>
           <Text style={styles.myStatusIcon}>●</Text>
           <View style={styles.myStatusCopy}>
             <Text style={styles.myStatusTitle}>Ton statut est visible</Text>
             <Text style={styles.myStatusBody}>
-              {outingStatus.activityType} · {outingStatus.venue}
+              {displayStatusLabel} · {displayVenue ?? 'lieu partagé'}
             </Text>
           </View>
           <Text style={styles.chevron}>›</Text>
@@ -60,7 +98,7 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
           <Text style={styles.link}>Tout voir</Text>
         </Pressable>
       </View>
-      {demoVenues.map((venue) => (
+      {venues.map((venue) => (
         <Pressable key={venue.name} style={styles.venue} onPress={() => goToDiscover(navigation)}>
           <View style={styles.venueIcon}>
             <Text style={styles.venueIconText}>⌖</Text>
@@ -82,7 +120,11 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
         <View style={styles.eventCopy}>
           <Text style={styles.eventEyebrow}>ÉVÉNEMENT TÉCAP · 18+</Text>
           <Text style={styles.eventTitle}>On se capte IRL.</Text>
-          <Text style={styles.eventMeta}>Vendredi · L’Apsara · Rennes</Text>
+          <Text style={styles.eventMeta}>
+            {event
+              ? `${new Date(event.starts_at).toLocaleDateString('fr-FR')} · ${event.venue} · ${event.city}`
+              : 'Vendredi · L’Apsara · Rennes'}
+          </Text>
         </View>
         <View style={[styles.eventCta, glow.gold]}>
           <Text style={styles.eventCtaText}>Découvrir</Text>

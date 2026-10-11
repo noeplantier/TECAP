@@ -1,8 +1,11 @@
 import { goToDiscover } from '../navigation/routes';
 import { useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
+import { fetchBackendEntitlements } from '../lib/backend';
 import { demoCommerce } from '../lib/commerce';
 import { boostFeatures, demoPhotos, inviteFeatures, premiumFeatures } from '../lib/demo';
+import { isBackendEnabled } from '../lib/runtime';
 import { useAppStore } from '../state/useAppStore';
 import type { OfferId } from '../state/useAppStore';
 import { colors, glow, radius, spacing } from '../theme';
@@ -44,6 +47,11 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
   const activatePremium = useAppStore((state) => state.activatePremium);
   const addBoosts = useAppStore((state) => state.addBoosts);
   const addInvitationCredits = useAppStore((state) => state.addInvitationCredits);
+  const entitlements = useQuery({
+    queryKey: ['backend-entitlements'],
+    queryFn: fetchBackendEntitlements,
+    enabled: isBackendEnabled,
+  });
   const copy = productCopy[mode];
   const features = useMemo(
     () =>
@@ -55,6 +63,13 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
     setSelected(next === 'premium' ? 'premium-3' : next === 'boost' ? 'boost-5' : 'invite-5');
   };
   const buy = async () => {
+    if (isBackendEnabled) {
+      Alert.alert(
+        'Paiement sécurisé',
+        'Le paiement App Store / Google Play doit confirmer la transaction avant l’activation des droits. Aucun achat fictif ne sera écrit dans Supabase.',
+      );
+      return;
+    }
     const result = await demoCommerce.purchase(selected);
     if (mode === 'premium') activatePremium(result.offerId);
     if (mode === 'boost') addBoosts(selected === 'boost-5' ? 5 : 1, result.offerId);
@@ -87,6 +102,15 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
           </Pressable>
         ))}
       </View>
+      {isBackendEnabled && entitlements.data && (
+        <View style={styles.entitlementBar}>
+          <Text style={styles.entitlementText}>
+            {entitlements.data.premium ? '♛ Premium actif' : 'Compte gratuit'} ·{' '}
+            {entitlements.data.invitationCredits} invitation(s) · {entitlements.data.activeBoosts}{' '}
+            boost(s) actif(s)
+          </Text>
+        </View>
+      )}
       <View style={styles.hero}>
         <Image source={{ uri: copy.hero }} style={styles.heroImage} />
         <View style={styles.heroShade} />
@@ -259,6 +283,16 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   info: { color: colors.text, fontSize: 23 },
   modeBar: { flexDirection: 'row', gap: 7, marginVertical: 18 },
+  entitlementBar: {
+    backgroundColor: colors.goldWash,
+    borderColor: colors.goldSoft,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  entitlementText: { color: colors.gold, fontSize: 9, fontWeight: '800', textAlign: 'center' },
   mode: {
     borderColor: colors.line,
     borderWidth: 1,

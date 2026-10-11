@@ -1,7 +1,10 @@
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BrandLogo } from '../components/BrandLogo';
+import { fetchBackendStatus, publishBackendStatus, removeBackendStatus } from '../lib/backend';
 import { demoPhotos } from '../lib/demo';
+import { isBackendEnabled } from '../lib/runtime';
 import { goToDiscover } from '../navigation/routes';
 import { useAppStore } from '../state/useAppStore';
 import { colors, radius, spacing } from '../theme';
@@ -23,17 +26,59 @@ export function EveningStatusScreen({ navigation }: { navigation: Navigation }) 
   const outingStatus = useAppStore((state) => state.outingStatus);
   const publishOutingStatus = useAppStore((state) => state.publishOutingStatus);
   const removeOutingStatus = useAppStore((state) => state.removeOutingStatus);
+  const queryClient = useQueryClient();
+  const remoteStatus = useQuery({
+    queryKey: ['backend-evening-status'],
+    queryFn: fetchBackendStatus,
+    enabled: isBackendEnabled,
+  });
   const [selected, setSelected] = useState(outingStatus?.activityType ?? 'Verre / bar');
   const [venue, setVenue] = useState(outingStatus?.venue ?? 'L’Apsara');
 
-  const publish = () =>
-    publishOutingStatus({
-      activityType: selected,
-      city,
-      venue,
-      timeWindow: 'Ce soir · vers 21 h',
-      expiresAt: Date.now() + 8 * 60 * 60 * 1000,
-    });
+  useEffect(() => {
+    if (!remoteStatus.data) return;
+    setVenue(remoteStatus.data.venue ?? 'L’Apsara');
+    setSelected(
+      remoteStatus.data.status_type === 'bar' ? 'Verre / bar' : remoteStatus.data.status_type,
+    );
+  }, [remoteStatus.data]);
+
+  const hasStatus = isBackendEnabled ? Boolean(remoteStatus.data) : Boolean(outingStatus);
+  const publish = async () => {
+    try {
+      if (isBackendEnabled) {
+        await publishBackendStatus({ activityType: selected, city, venue });
+        await queryClient.invalidateQueries({ queryKey: ['backend-evening-status'] });
+      } else {
+        publishOutingStatus({
+          activityType: selected,
+          city,
+          venue,
+          timeWindow: 'Ce soir · vers 21 h',
+          expiresAt: Date.now() + 8 * 60 * 60 * 1000,
+        });
+      }
+    } catch (error) {
+      Alert.alert(
+        'Publication impossible',
+        error instanceof Error ? error.message : 'Réessaie dans un instant.',
+      );
+    }
+  };
+
+  const remove = async () => {
+    try {
+      if (isBackendEnabled) {
+        await removeBackendStatus();
+        await queryClient.invalidateQueries({ queryKey: ['backend-evening-status'] });
+      } else removeOutingStatus();
+    } catch (error) {
+      Alert.alert(
+        'Retrait impossible',
+        error instanceof Error ? error.message : 'Réessaie dans un instant.',
+      );
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -89,16 +134,16 @@ export function EveningStatusScreen({ navigation }: { navigation: Navigation }) 
       </View>
       <Pressable onPress={publish} style={styles.primary}>
         <Text style={styles.primaryText}>
-          {outingStatus ? 'Mettre à jour mon statut' : 'Publier mon statut'}
+          {hasStatus ? 'Mettre à jour mon statut' : 'Publier mon statut'}
         </Text>
       </Pressable>
-      {outingStatus && (
-        <Pressable onPress={removeOutingStatus} style={styles.secondary}>
+      {hasStatus && (
+        <Pressable onPress={remove} style={styles.secondary}>
           <Text style={styles.secondaryText}>Retirer mon statut</Text>
         </Pressable>
       )}
       <Text style={styles.note}>
-        {outingStatus
+        {hasStatus
           ? 'Ton statut est visible dans Qui sort ce soir.'
           : 'Rien ne sera publié sans ta validation.'}
       </Text>

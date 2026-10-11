@@ -1,3 +1,4 @@
+import { goToDiscover } from '../navigation/routes';
 import { useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { demoCommerce } from '../lib/commerce';
@@ -8,7 +9,7 @@ import { colors, glow, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
 
 type Mode = 'invite' | 'premium' | 'boost';
-type Navigation = { navigate: (screen: string) => void };
+type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 const productCopy = {
   invite: {
     eyebrow: 'UNE INVITATION SPÉCIALE',
@@ -58,7 +59,7 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
     if (mode === 'premium') activatePremium(result.offerId);
     if (mode === 'boost') addBoosts(selected === 'boost-5' ? 5 : 1, result.offerId);
     if (mode === 'invite') addInvitationCredits(selected === 'invite-5' ? 5 : 1, result.offerId);
-    if (mode === 'invite') navigation.navigate('Invitation');
+    if (mode === 'invite') goToDiscover(navigation, 'Invitation');
     else
       Alert.alert(
         'C’est activé',
@@ -129,7 +130,7 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
         </Text>
       </Pressable>
       {mode === 'invite' && (
-        <Pressable onPress={() => navigation.navigate('Invitation')} style={styles.secondary}>
+        <Pressable onPress={() => goToDiscover(navigation, 'Invitation')} style={styles.secondary}>
           <Text style={styles.secondaryText}>Voir comment ça marche</Text>
         </Pressable>
       )}

@@ -1,17 +1,33 @@
+import { goToDiscover, goToMessages, goToOutings, goToShop } from '../navigation/routes';
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { demoProfiles } from '../lib/demo';
 import { colors, glow, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
+import { useAppStore } from '../state/useAppStore';
 
-type Navigation = { navigate: (screen: string) => void };
+type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 export function InvitationFlowScreen({ navigation }: { navigation: Navigation }) {
   const [step, setStep] = useState(0);
   const profile = demoProfiles[2]!;
+  const likeProfile = useAppStore((state) => state.likeProfile);
+  const sendCatchRequest = useAppStore((state) => state.sendCatchRequest);
+  const acceptInvitation = () => {
+    const result = likeProfile(profile.id, profile.willMatchOnLike);
+    sendCatchRequest({
+      matchId: result.matched ? `match-${profile.id}` : `demo-request-${profile.id}`,
+      receiverProfileId: profile.id,
+      intent: 'verre',
+      venue: profile.venue,
+      timeOption: 'Vers 21 h',
+      message: 'On se capte ce soir ? ✨',
+    });
+    setStep(2);
+  };
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.navigate('Shop')}>
+        <Pressable onPress={() => goToShop(navigation)}>
           <Text style={styles.back}>‹</Text>
         </Pressable>
         <View>
@@ -50,7 +66,7 @@ export function InvitationFlowScreen({ navigation }: { navigation: Navigation })
           <Pressable onPress={() => setStep(1)} style={[styles.cta, glow.pink]}>
             <Text style={styles.ctaText}>Voir la demande</Text>
           </Pressable>
-          <Pressable onPress={() => navigation.navigate('Discover')}>
+          <Pressable onPress={() => goToDiscover(navigation)}>
             <Text style={styles.later}>Plus tard</Text>
           </Pressable>
         </ScrollView>
@@ -75,7 +91,7 @@ export function InvitationFlowScreen({ navigation }: { navigation: Navigation })
               ou de passer.
             </Text>
           </View>
-          <Pressable onPress={() => setStep(2)} style={styles.cta}>
+          <Pressable onPress={acceptInvitation} style={styles.cta}>
             <Text style={styles.ctaText}>♡ Ça me tente !</Text>
           </Pressable>
           <Pressable onPress={() => setStep(0)} style={styles.secondary}>
@@ -94,10 +110,10 @@ export function InvitationFlowScreen({ navigation }: { navigation: Navigation })
               <Text style={styles.matchLetter}>M</Text>
             </View>
           </View>
-          <Pressable onPress={() => navigation.navigate('Chat')} style={styles.cta}>
+          <Pressable onPress={() => goToMessages(navigation, 'Conversation')} style={styles.cta}>
             <Text style={styles.ctaText}>▢ Envoyer un message</Text>
           </Pressable>
-          <Pressable onPress={() => navigation.navigate('Night')} style={styles.secondary}>
+          <Pressable onPress={() => goToOutings(navigation, 'Night')} style={styles.secondary}>
             <Text style={styles.secondaryText}>Partager un plan</Text>
           </Pressable>
         </View>

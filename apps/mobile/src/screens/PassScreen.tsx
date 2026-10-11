@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
-type Navigation = { navigate: (screen: string) => void };
+type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 export function PassScreen({ navigation }: { navigation: Navigation }) {
   return (
     <ScrollView contentContainerStyle={styles.container}>

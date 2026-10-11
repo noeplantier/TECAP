@@ -1,15 +1,16 @@
+import { goToDiscover } from '../navigation/routes';
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { demoPhotos } from '../lib/demo';
 import { colors, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
-type Navigation = { navigate: (screen: string) => void };
+type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 export function NightScreen({ navigation }: { navigation: Navigation }) {
   const [joined, setJoined] = useState(false);
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.navigate('Home')}>
+        <Pressable onPress={() => goToDiscover(navigation, 'Home')}>
           <Text style={styles.back}>‹</Text>
         </Pressable>
         <View style={styles.brandHeader}>

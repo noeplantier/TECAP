@@ -1,9 +1,10 @@
+import { goToOutings } from '../navigation/routes';
 import { Pressable, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
 import { demoPhotos } from '../lib/demo';
 import { colors, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
 
-type Navigation = { navigate: (screen: string) => void };
+type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 export function HomeScreen({ navigation }: { navigation: Navigation }) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -15,7 +16,7 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
         <Text style={styles.bell}>♧</Text>
       </View>
       <Text style={styles.title}>T’es où ?{`\n`}On se capte.</Text>
-      <Pressable style={styles.statusCta} onPress={() => navigation.navigate('EveningStatus')}>
+      <Pressable style={styles.statusCta} onPress={() => goToOutings(navigation, 'EveningStatus')}>
         <Text style={styles.moon}>☾</Text>
         <View style={styles.statusCopy}>
           <Text style={styles.statusTitle}>T’as quoi de prévu ce soir ?</Text>
@@ -30,11 +31,11 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
       </View>
       <View style={styles.sectionHead}>
         <Text style={styles.sectionTitle}>Qui sort ce soir ?</Text>
-        <Pressable onPress={() => navigation.navigate('Map')}>
+        <Pressable onPress={() => goToOutings(navigation, 'Map')}>
           <Text style={styles.link}>Voir la carte ↗</Text>
         </Pressable>
       </View>
-      <Pressable style={styles.featureCard} onPress={() => navigation.navigate('Discover')}>
+      <Pressable style={styles.featureCard} onPress={() => navigation.navigate('DiscoverHome')}>
         <Image source={{ uri: demoPhotos.lea }} style={styles.featureImage} />
         <View style={styles.featureShade} />
         <View style={styles.featureText}>
@@ -43,7 +44,7 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
           <Text style={styles.featureMeta}>Centre · zone 1 km</Text>
         </View>
       </Pressable>
-      <Pressable style={styles.rowCard} onPress={() => navigation.navigate('Discover')}>
+      <Pressable style={styles.rowCard} onPress={() => navigation.navigate('DiscoverHome')}>
         <View style={styles.smallAvatar}>
           <Text style={styles.avatarLetter}>L</Text>
         </View>

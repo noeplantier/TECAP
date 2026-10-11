@@ -1,13 +1,16 @@
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthScreen } from '../screens/AuthScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { DiscoverScreen } from '../screens/DiscoverScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { MatchScreen } from '../screens/MatchScreen';
 import { ChatScreen } from '../screens/ChatScreen';
+import { ChatListScreen } from '../screens/ChatListScreen';
 import { EveningStatusScreen } from '../screens/EveningStatusScreen';
 import { MapScreen } from '../screens/MapScreen';
 import { NightScreen } from '../screens/NightScreen';
@@ -16,46 +19,146 @@ import { EventsScreen } from '../screens/EventsScreen';
 import { ShopScreen } from '../screens/ShopScreen';
 import { InvitationFlowScreen } from '../screens/InvitationFlowScreen';
 import { IncomingRequestScreen } from '../screens/IncomingRequestScreen';
+import { ProfileDetailScreen } from '../screens/ProfileDetailScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { SafetyScreen } from '../screens/SafetyScreen';
 import { useAppStore } from '../state/useAppStore';
+import { colors } from '../theme';
 
-const Stack = createNativeStackNavigator();
-const Tabs = createBottomTabNavigator();
-const theme = {
+const RootStack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
+const DiscoverStack = createNativeStackNavigator();
+const OutingsStack = createNativeStackNavigator();
+const MessagesStack = createNativeStackNavigator();
+const ProfileStack = createNativeStackNavigator();
+const ShopStack = createNativeStackNavigator();
+
+const navigationTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    background: '#0E0F1A',
-    card: '#0E0F1A',
-    primary: '#A47BFF',
-    text: '#F8F7FA',
-    border: '#303149',
+    background: colors.canvas,
+    card: colors.canvas,
+    primary: colors.pink,
+    text: colors.text,
+    border: colors.line,
   },
-};
-const tabItems: Record<string, { icon: string; label: string }> = {
-  Discover: { icon: '◉', label: 'Découvrir' },
-  Events: { icon: '⌖', label: 'Sorties' },
-  Messages: { icon: '⌁', label: 'Messages' },
-  Profile: { icon: '♙', label: 'Profil' },
-  Shop: { icon: '♛', label: 'Boutique' },
 };
 
 type TabBarState = { index: number; routes: Array<{ key: string; name: string }> };
 type TabBarNavigation = { navigate: (name: string) => void };
+type TabDefinition = {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  activeIcon: keyof typeof Ionicons.glyphMap;
+  accent?: 'pink' | 'gold';
+};
+
+const tabItems: Record<string, TabDefinition> = {
+  DiscoverTab: {
+    label: 'Découvrir',
+    icon: 'compass-outline',
+    activeIcon: 'compass',
+    accent: 'pink',
+  },
+  OutingsTab: {
+    label: 'Sorties',
+    icon: 'location-outline',
+    activeIcon: 'location',
+    accent: 'pink',
+  },
+  MessagesTab: {
+    label: 'Messages',
+    icon: 'chatbubble-ellipses-outline',
+    activeIcon: 'chatbubble-ellipses',
+    accent: 'pink',
+  },
+  ProfileTab: { label: 'Profil', icon: 'person-outline', activeIcon: 'person', accent: 'pink' },
+  ShopTab: {
+    label: 'Boutique',
+    icon: 'bag-handle-outline',
+    activeIcon: 'bag-handle',
+    accent: 'gold',
+  },
+};
+
+function DiscoverStackScreen() {
+  return (
+    <DiscoverStack.Navigator screenOptions={{ headerShown: false }}>
+      <DiscoverStack.Screen name='DiscoverHome' component={DiscoverScreen} />
+      <DiscoverStack.Screen name='Home' component={HomeScreen} />
+      <DiscoverStack.Screen name='Match' component={MatchScreen} />
+      <DiscoverStack.Screen name='Invitation' component={InvitationFlowScreen} />
+      <DiscoverStack.Screen name='ProfileDetail' component={ProfileDetailScreen} />
+    </DiscoverStack.Navigator>
+  );
+}
+
+function OutingsStackScreen() {
+  return (
+    <OutingsStack.Navigator screenOptions={{ headerShown: false }}>
+      <OutingsStack.Screen name='OutingsHome' component={EventsScreen} />
+      <OutingsStack.Screen name='Map' component={MapScreen} />
+      <OutingsStack.Screen name='EveningStatus' component={EveningStatusScreen} />
+      <OutingsStack.Screen name='Night' component={NightScreen} />
+      <OutingsStack.Screen name='Pass' component={PassScreen} />
+    </OutingsStack.Navigator>
+  );
+}
+
+function MessagesStackScreen() {
+  return (
+    <MessagesStack.Navigator screenOptions={{ headerShown: false }}>
+      <MessagesStack.Screen name='MessagesHome' component={ChatListScreen} />
+      <MessagesStack.Screen name='Conversation' component={ChatScreen} />
+      <MessagesStack.Screen name='IncomingRequest' component={IncomingRequestScreen} />
+    </MessagesStack.Navigator>
+  );
+}
+
+function ProfileStackScreen() {
+  return (
+    <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
+      <ProfileStack.Screen name='ProfileHome' component={ProfileScreen} />
+      <ProfileStack.Screen name='Notifications' component={NotificationsScreen} />
+      <ProfileStack.Screen name='Safety' component={SafetyScreen} />
+    </ProfileStack.Navigator>
+  );
+}
+
+function ShopStackScreen() {
+  return (
+    <ShopStack.Navigator screenOptions={{ headerShown: false }}>
+      <ShopStack.Screen name='ShopHome' component={ShopScreen} />
+    </ShopStack.Navigator>
+  );
+}
 
 function TecapTabBar({ state, navigation }: { state: TabBarState; navigation: TabBarNavigation }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.tabBar}>
+    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {state.routes.map((route, index) => {
         const active = state.index === index;
-        const item = tabItems[route.name] ?? tabItems.Discover!;
+        const item = tabItems[route.name] ?? tabItems.DiscoverTab!;
+        const color = active ? (item.accent === 'gold' ? colors.gold : colors.pink) : colors.muted;
         return (
           <Pressable
             key={route.key}
             onPress={() => navigation.navigate(route.name)}
-            style={[styles.tab, active && styles.tabActive]}
+            accessibilityRole='tab'
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={item.label}
+            style={({ pressed }) => [
+              styles.tab,
+              active && styles.tabActive,
+              pressed && styles.tabPressed,
+            ]}
           >
-            <Text style={[styles.tabIcon, active && styles.tabIconActive]}>{item.icon}</Text>
-            <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{item.label}</Text>
+            <Ionicons name={active ? item.activeIcon : item.icon} size={22} color={color} />
+            <Text style={[styles.tabLabel, { color }, active && styles.tabLabelActive]}>
+              {item.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -65,43 +168,31 @@ function TecapTabBar({ state, navigation }: { state: TabBarState; navigation: Ta
 
 function MainTabs() {
   return (
-    <Tabs.Navigator
-      initialRouteName='Discover'
+    <Tab.Navigator
+      initialRouteName='DiscoverTab'
       tabBar={(props) => <TecapTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen name='Discover' component={DiscoverScreen} />
-      <Tabs.Screen name='Events' component={EventsScreen} />
-      <Tabs.Screen name='Messages' component={ChatScreen} />
-      <Tabs.Screen name='Profile' component={ProfileScreen} />
-      <Tabs.Screen name='Shop' component={ShopScreen} />
-    </Tabs.Navigator>
+      <Tab.Screen name='DiscoverTab' component={DiscoverStackScreen} />
+      <Tab.Screen name='OutingsTab' component={OutingsStackScreen} />
+      <Tab.Screen name='MessagesTab' component={MessagesStackScreen} />
+      <Tab.Screen name='ProfileTab' component={ProfileStackScreen} />
+      <Tab.Screen name='ShopTab' component={ShopStackScreen} />
+    </Tab.Navigator>
   );
 }
 
 export function AppNavigator() {
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
   return (
-    <NavigationContainer theme={theme}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <NavigationContainer theme={navigationTheme}>
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
-          <Stack.Screen name='Auth' component={AuthScreen} />
+          <RootStack.Screen name='Auth' component={AuthScreen} />
         ) : (
-          <>
-            <Stack.Screen name='Main' component={MainTabs} />
-            <Stack.Screen name='Home' component={HomeScreen} />
-            <Stack.Screen name='Shop' component={ShopScreen} />
-            <Stack.Screen name='Match' component={MatchScreen} />
-            <Stack.Screen name='Chat' component={ChatScreen} />
-            <Stack.Screen name='EveningStatus' component={EveningStatusScreen} />
-            <Stack.Screen name='Map' component={MapScreen} />
-            <Stack.Screen name='Night' component={NightScreen} />
-            <Stack.Screen name='Pass' component={PassScreen} />
-            <Stack.Screen name='Invitation' component={InvitationFlowScreen} />
-            <Stack.Screen name='IncomingRequest' component={IncomingRequestScreen} />
-          </>
+          <RootStack.Screen name='MainTabs' component={MainTabs} />
         )}
-      </Stack.Navigator>
+      </RootStack.Navigator>
     </NavigationContainer>
   );
 }
@@ -109,25 +200,24 @@ export function AppNavigator() {
 const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#05050B',
+    backgroundColor: colors.canvas,
     borderTopWidth: 1,
-    borderTopColor: '#2C1C38',
-    height: 78,
+    borderTopColor: colors.line,
+    minHeight: 72,
     paddingHorizontal: 5,
-    paddingBottom: 11,
     paddingTop: 7,
   },
   tab: {
     flex: 1,
+    minHeight: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-    borderRadius: 15,
+    gap: 4,
+    borderRadius: 16,
     marginHorizontal: 2,
   },
-  tabActive: { borderColor: '#9E356F', borderWidth: 1, backgroundColor: 'rgba(255,46,173,.08)' },
-  tabIcon: { color: '#77798D', fontSize: 21 },
-  tabIconActive: { color: '#FFD36A' },
-  tabLabel: { color: '#77798D', fontSize: 10 },
-  tabLabelActive: { color: '#FFD36A', fontWeight: '700' },
+  tabActive: { borderColor: colors.pinkSoft, borderWidth: 1, backgroundColor: colors.pinkWash },
+  tabPressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
+  tabLabel: { fontSize: 10 },
+  tabLabelActive: { fontWeight: '800' },
 });

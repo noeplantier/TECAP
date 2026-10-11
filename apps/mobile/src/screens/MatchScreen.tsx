@@ -1,13 +1,14 @@
+import { goToMessages } from '../navigation/routes';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { demoPhotos } from '../lib/demo';
 import { colors, glow, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
-type Navigation = { navigate: (screen: string) => void };
+type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 export function MatchScreen({ navigation }: { navigation: Navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.navigate('Discover')}>
+        <Pressable onPress={() => navigation.navigate('DiscoverHome')}>
           <Text style={styles.back}>‹</Text>
         </Pressable>
         <BrandLogo size='small' />
@@ -25,10 +26,13 @@ export function MatchScreen({ navigation }: { navigation: Navigation }) {
           </View>
         </View>
         <Text style={styles.plan}>◷ Vous sortez tous les deux ce soir · L’Apsara 🍸</Text>
-        <Pressable onPress={() => navigation.navigate('Chat')} style={[styles.primary, glow.pink]}>
+        <Pressable
+          onPress={() => goToMessages(navigation, 'Conversation')}
+          style={[styles.primary, glow.pink]}
+        >
           <Text style={styles.primaryText}>◌ Envoyer un message</Text>
         </Pressable>
-        <Pressable onPress={() => navigation.navigate('Discover')} style={styles.secondary}>
+        <Pressable onPress={() => navigation.navigate('DiscoverHome')} style={styles.secondary}>
           <Text style={styles.secondaryText}>Continuer à swiper</Text>
         </Pressable>
       </View>

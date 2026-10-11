@@ -1,10 +1,13 @@
+import { goToDiscover } from '../navigation/routes';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { demoPhotos, demoVenues } from '../lib/demo';
+import { useAppStore } from '../state/useAppStore';
 import { colors, glow, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
 
-type Navigation = { navigate: (screen: string) => void };
+type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
+  const outingStatus = useAppStore((state) => state.outingStatus);
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -21,6 +24,18 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
       <Text style={styles.subtitle}>
         Découvre les intentions de sortie et les lieux indiqués volontairement par les membres.
       </Text>
+      {outingStatus && (
+        <Pressable onPress={() => navigation.navigate('EveningStatus')} style={styles.myStatus}>
+          <Text style={styles.myStatusIcon}>●</Text>
+          <View style={styles.myStatusCopy}>
+            <Text style={styles.myStatusTitle}>Ton statut est visible</Text>
+            <Text style={styles.myStatusBody}>
+              {outingStatus.activityType} · {outingStatus.venue}
+            </Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
+      )}
       <View style={styles.filters}>
         <Text style={[styles.filter, styles.filterActive]}>Tous</Text>
         <Text style={styles.filter}>Bar 🍸</Text>
@@ -46,11 +61,7 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
         </Pressable>
       </View>
       {demoVenues.map((venue) => (
-        <Pressable
-          key={venue.name}
-          style={styles.venue}
-          onPress={() => navigation.navigate('Discover')}
-        >
+        <Pressable key={venue.name} style={styles.venue} onPress={() => goToDiscover(navigation)}>
           <View style={styles.venueIcon}>
             <Text style={styles.venueIconText}>⌖</Text>
           </View>
@@ -97,6 +108,20 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 32, lineHeight: 35, fontWeight: '900', marginTop: 26 },
   titleAccent: { color: colors.pink },
   subtitle: { color: colors.mutedStrong, fontSize: 13, lineHeight: 19, marginTop: 9 },
+  myStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.goldWash,
+    borderColor: colors.goldSoft,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: 12,
+    marginTop: 13,
+  },
+  myStatusIcon: { color: colors.green, fontSize: 17, marginRight: 10 },
+  myStatusCopy: { flex: 1 },
+  myStatusTitle: { color: colors.text, fontSize: 12, fontWeight: '900' },
+  myStatusBody: { color: colors.mutedStrong, fontSize: 10, marginTop: 3 },
   filters: { flexDirection: 'row', gap: 8, marginVertical: 17 },
   filter: {
     color: colors.mutedStrong,

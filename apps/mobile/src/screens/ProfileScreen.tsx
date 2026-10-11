@@ -5,7 +5,9 @@ import { supabase } from '../lib/supabase';
 import { isBackendEnabled } from '../lib/runtime';
 import { BrandLogo } from '../components/BrandLogo';
 
-export function ProfileScreen() {
+type Navigation = { navigate: (screen: string, params?: unknown) => void };
+
+export function ProfileScreen({ navigation }: { navigation: Navigation }) {
   const setAuthenticated = useAppStore((state) => state.setAuthenticated);
   const city = useAppStore((state) => state.city);
   const logout = async () => {
@@ -45,6 +47,22 @@ export function ProfileScreen() {
           <Text style={styles.value}>Ma ville uniquement</Text>
         </View>
       </View>
+      <Pressable onPress={() => navigation.navigate('Notifications')} style={styles.linkCard}>
+        <Text style={styles.linkIcon}>✦</Text>
+        <View style={styles.linkCopy}>
+          <Text style={styles.linkTitle}>Centre de notifications</Text>
+          <Text style={styles.linkBody}>Matchs, messages et demandes de sortie</Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </Pressable>
+      <Pressable onPress={() => navigation.navigate('Safety')} style={styles.linkCard}>
+        <Text style={styles.linkIcon}>♢</Text>
+        <View style={styles.linkCopy}>
+          <Text style={styles.linkTitle}>Sécurité TÉCAP</Text>
+          <Text style={styles.linkBody}>Conseils, blocage et signalement</Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </Pressable>
       <Pressable onPress={logout} style={styles.logout}>
         <Text style={styles.logoutText}>Se déconnecter</Text>
       </Pressable>
@@ -91,6 +109,21 @@ const styles = StyleSheet.create({
   },
   cardTitle: { color: colors.text, fontWeight: '800', fontSize: 15, marginBottom: 10 },
   cardText: { color: colors.muted, fontSize: 13, lineHeight: 20 },
+  linkCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: 13,
+    marginBottom: 9,
+  },
+  linkIcon: { color: colors.pink, fontSize: 21, marginRight: 10 },
+  linkCopy: { flex: 1 },
+  linkTitle: { color: colors.text, fontSize: 12, fontWeight: '900' },
+  linkBody: { color: colors.muted, fontSize: 9, marginTop: 4 },
+  chevron: { color: colors.mutedStrong, fontSize: 22 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',

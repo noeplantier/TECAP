@@ -1,15 +1,19 @@
+import { goToDiscover, goToMessages } from '../navigation/routes';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { demoPhotos } from '../lib/demo';
 import { colors, glow, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
 
-type Navigation = { navigate: (screen: string) => void };
+type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 
 export function IncomingRequestScreen({ navigation }: { navigation: Navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.navigate('Chat')} accessibilityRole='button'>
+        <Pressable
+          onPress={() => goToMessages(navigation, 'Conversation')}
+          accessibilityRole='button'
+        >
           <Text style={styles.back}>‹</Text>
         </Pressable>
         <View style={styles.brandHeader}>
@@ -31,14 +35,14 @@ export function IncomingRequestScreen({ navigation }: { navigation: Navigation }
           <Text style={styles.meta}>Alex · 27 ans · à 2 km · en ligne</Text>
         </View>
         <Pressable
-          onPress={() => navigation.navigate('Match')}
+          onPress={() => goToDiscover(navigation, 'Match')}
           style={[styles.primary, glow.pink]}
           accessibilityRole='button'
         >
           <Text style={styles.primaryText}>Voir la demande</Text>
         </Pressable>
         <Pressable
-          onPress={() => navigation.navigate('Discover')}
+          onPress={() => goToDiscover(navigation)}
           style={styles.secondary}
           accessibilityRole='button'
         >

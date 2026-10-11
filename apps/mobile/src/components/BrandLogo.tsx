@@ -28,7 +28,25 @@ export function BrandLogo({ size = 'medium', showTagline = false }: BrandLogoPro
 }
 
 const styles = StyleSheet.create({
-  logo: { color: colors.text, fontWeight: '900' },
-  accent: { color: colors.gold },
-  tagline: { color: colors.mutedStrong, marginTop: 2, textAlign: 'center' },
+  logo: {
+    color: colors.text,
+    fontWeight: '900',
+    textShadowColor: colors.pinkGlow,
+    textShadowRadius: 11,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  accent: {
+    color: colors.goldLight,
+    textShadowColor: colors.goldGlow,
+    textShadowRadius: 12,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  tagline: {
+    color: colors.mutedStrong,
+    marginTop: 2,
+    textAlign: 'center',
+    textShadowColor: colors.pinkGlow,
+    textShadowRadius: 7,
+    textShadowOffset: { width: 0, height: 0 },
+  },
 });

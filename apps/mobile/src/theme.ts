@@ -1,27 +1,32 @@
 export const background = {
-  base: '#07050B',
-  elevated: '#101016',
-  card: '#13121A',
-  overlay: 'rgba(7,5,11,0.76)',
+  base: '#050308',
+  elevated: '#0D0812',
+  card: '#160C1B',
+  overlay: 'rgba(5,3,8,0.82)',
 } as const;
 
 export const text = {
-  primary: '#FFF9FC',
-  secondary: '#E5DDE5',
-  muted: '#AAA2AE',
+  primary: '#FFF9FE',
+  secondary: '#F5EAF4',
+  muted: '#B7A9B7',
 } as const;
 
 export const brand = {
-  pink: '#FF2BAA',
-  hotPink: '#FF46C8',
-  magenta: '#D900B8',
-  gold: '#F6BD4B',
-  goldLight: '#FFD978',
+  pink: '#FF25B8',
+  hotPink: '#FF5AD1',
+  pinkElectric: '#FF0FAF',
+  pinkLight: '#FF9CE4',
+  magenta: '#E000AA',
+  magentaDeep: '#9D0879',
+  gold: '#FFC84D',
+  goldHot: '#FFD76A',
+  goldLight: '#FFE7A3',
+  goldWhite: '#FFF3C7',
 } as const;
 
 export const status = {
   success: '#70D7A4',
-  danger: '#E84A72',
+  danger: '#FF547F',
 } as const;
 
 /** Legacy aliases keep existing screens source-compatible while using the central tokens above. */
@@ -29,26 +34,33 @@ export const colors = {
   canvas: background.base,
   surface: background.elevated,
   surfaceStrong: background.card,
-  surfaceSoft: '#2A101F',
+  surfaceSoft: '#35102C',
   text: text.primary,
   muted: text.muted,
   mutedStrong: text.secondary,
   pink: brand.pink,
-  pinkSoft: '#951968',
+  pinkSoft: '#D91B91',
+  pinkElectric: brand.pinkElectric,
+  pinkLight: brand.pinkLight,
   magenta: brand.magenta,
+  magentaDeep: brand.magentaDeep,
   hotPink: brand.hotPink,
   gold: brand.gold,
+  goldHot: brand.goldHot,
   goldLight: brand.goldLight,
-  goldSoft: '#9A6A24',
+  goldWhite: brand.goldWhite,
+  goldSoft: '#AD7420',
   ivory: brand.goldLight,
-  ivoryText: '#24150A',
+  ivoryText: '#261405',
   green: status.success,
   danger: status.danger,
-  line: '#3A182D',
+  line: '#572044',
   lineBright: brand.hotPink,
   overlay: background.overlay,
-  pinkWash: 'rgba(255,43,170,0.12)',
-  goldWash: 'rgba(246,189,75,0.12)',
+  pinkWash: 'rgba(255,37,184,0.20)',
+  pinkGlow: 'rgba(255,37,184,0.34)',
+  goldWash: 'rgba(255,200,77,0.18)',
+  goldGlow: 'rgba(255,200,77,0.28)',
 } as const;
 
 export const spacing = { xs: 6, sm: 10, md: 14, lg: 20, xl: 28, xxl: 36 };
@@ -62,17 +74,17 @@ export const typography = {
 
 export const glow = {
   pink: {
-    shadowColor: brand.pink,
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
+    shadowColor: brand.pinkElectric,
+    shadowOpacity: 0.78,
+    shadowRadius: 24,
     shadowOffset: { width: 0, height: 0 },
-    elevation: 10,
+    elevation: 16,
   },
   gold: {
-    shadowColor: brand.gold,
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
+    shadowColor: brand.goldHot,
+    shadowOpacity: 0.62,
+    shadowRadius: 23,
     shadowOffset: { width: 0, height: 0 },
-    elevation: 8,
+    elevation: 14,
   },
-};
+} as const;

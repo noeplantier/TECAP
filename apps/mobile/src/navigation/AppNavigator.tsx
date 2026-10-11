@@ -265,7 +265,7 @@ function TecapTabBar({ state, navigation }: { state: TabBarState; navigation: Ta
             accessibilityLabel={item.label}
             style={({ pressed }) => [
               styles.tab,
-              active && styles.tabActive,
+              active && (item.accent === 'gold' ? styles.tabActiveGold : styles.tabActive),
               pressed && styles.tabPressed,
             ]}
           >
@@ -337,9 +337,9 @@ export function AppNavigator() {
 const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: colors.canvas,
+    backgroundColor: '#030207',
     borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopColor: colors.lineBright,
     minHeight: 72,
     paddingHorizontal: 5,
     paddingTop: 7,
@@ -353,7 +353,26 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginHorizontal: 2,
   },
-  tabActive: { borderColor: colors.pinkSoft, borderWidth: 1, backgroundColor: colors.pinkWash },
+  tabActive: {
+    borderColor: colors.hotPink,
+    borderWidth: 1,
+    backgroundColor: colors.pinkWash,
+    shadowColor: colors.pinkElectric,
+    shadowOpacity: 0.72,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 11,
+  },
+  tabActiveGold: {
+    borderColor: colors.goldHot,
+    borderWidth: 1,
+    backgroundColor: colors.goldWash,
+    shadowColor: colors.goldHot,
+    shadowOpacity: 0.62,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 10,
+  },
   tabPressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
   tabLabel: { fontSize: 10 },
   tabLabelActive: { fontWeight: '800' },

@@ -1,120 +1,260 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { demoMessages, demoPhotos } from '../lib/demo';
+import { demoProfiles } from '../lib/demo';
+import { goToDiscover } from '../navigation/routes';
+import { useAppStore } from '../state/useAppStore';
 import { colors, radius, spacing } from '../theme';
-type Navigation = { navigate: (screen: string) => void };
-export function ChatScreen({ navigation }: { navigation: Navigation }) {
+import { BrandLogo } from '../components/BrandLogo';
+
+type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
+type Route = { params?: { matchId?: string } };
+
+export function ChatScreen({ navigation, route }: { navigation: Navigation; route?: Route }) {
   const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const matches = useAppStore((state) => state.matches);
+  const messages = useAppStore((state) => state.messages);
+  const requests = useAppStore((state) => state.catchRequests);
+  const addMessage = useAppStore((state) => state.addMessage);
+  const markMatchRead = useAppStore((state) => state.markMatchRead);
+  const matchId = route?.params?.matchId;
+  const selectedMatch = matches.find((match) => match.id === matchId) ?? matches[0];
+  const profile = useMemo(
+    () => demoProfiles.find((item) => item.id === selectedMatch?.profileId),
+    [selectedMatch?.profileId],
+  );
+
+  useEffect(() => {
+    if (selectedMatch) markMatchRead(selectedMatch.id);
+  }, [markMatchRead, selectedMatch]);
+
+  if (!selectedMatch || !profile) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.listHeader}>
+          <BrandLogo size='medium' showTagline />
+          <Text style={styles.more}>♢</Text>
+        </View>
+        <View style={styles.empty}>
+          <Text style={styles.emptyIcon}>♡</Text>
+          <Text style={styles.emptyTitle}>Tes matchs apparaîtront ici</Text>
+          <Text style={styles.emptyBody}>
+            Like un profil qui sort ce soir et démarre une conversation quand le like est
+            réciproque.
+          </Text>
+          <Pressable onPress={() => goToDiscover(navigation)} style={styles.primary}>
+            <Text style={styles.primaryText}>Découvrir des profils</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  const conversation = messages.filter((message) => message.matchId === selectedMatch.id);
+  const pendingRequest = requests.find(
+    (request) => request.matchId === selectedMatch.id && request.status === 'pending',
+  );
+
+  const send = () => {
+    const content = text.trim();
+    if (!content || sending) return;
+    setSending(true);
+    addMessage(selectedMatch.id, 'me', content);
+    setText('');
+    setTimeout(() => {
+      addMessage(
+        selectedMatch.id,
+        'them',
+        content.toLowerCase().includes('bar')
+          ? 'Carrément, ton plan me tente bien ✨'
+          : 'Oui, avec plaisir ! On se capte ce soir ?',
+      );
+      setSending(false);
+    }, 650);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.navigate('Home')}>
+        <Pressable onPress={() => navigation.goBack?.()} accessibilityRole='button'>
           <Text style={styles.back}>‹</Text>
         </Pressable>
-        <Image source={{ uri: demoPhotos.alex }} style={styles.headerAvatar} />
+        <Image source={{ uri: profile.photo }} style={styles.headerAvatar} />
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>Messages</Text>
-          <Text style={styles.subtitle}>Alex, 27 · en ligne</Text>
+          <BrandLogo size='small' />
+          <Text style={styles.title}>
+            {profile.name}, {profile.age}
+          </Text>
+          <Text style={styles.subtitle}>En ligne · {profile.venue ?? 'disponible ce soir'}</Text>
         </View>
-        <Text style={styles.more}>♢</Text>
+        <Text style={styles.more}>•••</Text>
       </View>
       <Pressable
-        onPress={() => navigation.navigate('IncomingRequest')}
-        style={styles.requestCard}
+        onPress={() => goToDiscover(navigation, 'Invitation')}
+        style={styles.catchCard}
         accessibilityRole='button'
       >
-        <View style={styles.requestIcon}>
-          <Text style={styles.requestIconText}>♡</Text>
+        <Text style={styles.catchIcon}>✦</Text>
+        <View style={styles.catchCopy}>
+          <Text style={styles.catchTitle}>On se capte ce soir ?</Text>
+          <Text style={styles.catchBody}>
+            {pendingRequest ? 'Demande en attente de réponse' : 'Proposer un plan avec intention'}
+          </Text>
         </View>
-        <View style={styles.requestCopy}>
-          <Text style={styles.requestEyebrow}>NOUVELLE DEMANDE</Text>
-          <Text style={styles.requestTitle}>On se capte ce soir ?</Text>
-          <Text style={styles.requestBody}>Alex t’a envoyé une invitation spéciale.</Text>
-        </View>
-        <Text style={styles.requestArrow}>›</Text>
+        <Text style={styles.catchArrow}>›</Text>
       </Pressable>
       <ScrollView contentContainerStyle={styles.messages}>
-        {demoMessages.map((message) => (
+        <View style={styles.matchBanner}>
+          <Text style={styles.matchIcon}>♡</Text>
+          <View>
+            <Text style={styles.matchTitle}>Match récent</Text>
+            <Text style={styles.matchBody}>Vous partagez peut-être la même soirée.</Text>
+          </View>
+        </View>
+        {conversation.length === 0 && (
+          <View style={styles.welcome}>
+            <Text style={styles.welcomeTitle}>Commence la conversation</Text>
+            <Text style={styles.welcomeText}>
+              “Salut, ton plan {profile.venue ?? 'de ce soir'} me tente bien.”
+            </Text>
+          </View>
+        )}
+        {conversation.map((message) => (
           <View
             key={message.id}
-            style={[styles.messageWrap, message.side === 'right' && styles.right]}
+            style={[styles.messageWrap, message.sender === 'me' && styles.right]}
           >
-            <View style={[styles.bubble, message.side === 'right' && styles.bubbleRight]}>
+            <View style={[styles.bubble, message.sender === 'me' && styles.bubbleRight]}>
               <Text style={styles.messageText}>{message.text}</Text>
             </View>
-            <Text style={styles.time}>{message.time}</Text>
+            <Text style={styles.time}>
+              {new Date(message.createdAt).toLocaleTimeString('fr-FR', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+              {message.sender === 'me' ? ' · Envoyé' : ''}
+            </Text>
           </View>
         ))}
-        <View style={styles.quick}>
-          <Text style={styles.quickText}>On se capte ? 👀</Text>
-          <Text style={styles.quickText}>T’es avec qui ?</Text>
-        </View>
       </ScrollView>
       <View style={styles.composer}>
         <TextInput
           value={text}
           onChangeText={setText}
+          onSubmitEditing={send}
+          editable={!sending}
           placeholder='Écris un message…'
           placeholderTextColor={colors.muted}
           style={styles.input}
+          returnKeyType='send'
         />
-        <Pressable onPress={() => setText('')} style={styles.send}>
+        <Pressable
+          disabled={sending || !text.trim()}
+          onPress={send}
+          style={[styles.send, (!text.trim() || sending) && styles.sendDisabled]}
+        >
           <Text style={styles.sendText}>➤</Text>
         </Pressable>
       </View>
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.canvas, paddingTop: 28 },
-  header: {
+  listHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingBottom: 18,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
-  back: { color: colors.text, fontSize: 32, marginRight: 15 },
-  title: { color: colors.text, fontSize: 18, fontWeight: '800' },
-  subtitle: { color: colors.muted, fontSize: 10, marginTop: 4 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  back: { color: colors.text, fontSize: 32, marginRight: 13 },
   headerAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     marginRight: 10,
     borderColor: colors.pink,
     borderWidth: 1,
   },
   headerCopy: { flex: 1 },
-  more: { color: colors.mutedStrong, marginLeft: 'auto', fontSize: 20 },
-  requestCard: {
+  title: { color: colors.text, fontSize: 16, fontWeight: '900', marginTop: 2 },
+  subtitle: { color: colors.muted, fontSize: 10, marginTop: 3 },
+  more: { color: colors.mutedStrong, fontSize: 20, marginLeft: 'auto' },
+  catchCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: spacing.lg,
-    marginTop: 12,
+    margin: spacing.lg,
+    marginBottom: 0,
     padding: 12,
     borderColor: colors.pinkSoft,
     borderWidth: 1,
     borderRadius: radius.md,
-    backgroundColor: 'rgba(255,46,173,.1)',
+    backgroundColor: colors.pinkWash,
   },
-  requestIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceStrong,
+  catchIcon: { color: colors.pink, fontSize: 22, marginRight: 10 },
+  catchCopy: { flex: 1 },
+  catchTitle: { color: colors.text, fontSize: 12, fontWeight: '900' },
+  catchBody: { color: colors.muted, fontSize: 9, marginTop: 3 },
+  catchArrow: { color: colors.pink, fontSize: 24 },
+  messages: { padding: spacing.lg, paddingBottom: 25 },
+  matchBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
+    backgroundColor: colors.goldWash,
+    borderColor: colors.goldSoft,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: 12,
+    marginBottom: 18,
   },
-  requestIconText: { color: colors.pink, fontSize: 22 },
-  requestCopy: { flex: 1 },
-  requestEyebrow: { color: colors.gold, fontSize: 8, letterSpacing: 1, fontWeight: '900' },
-  requestTitle: { color: colors.text, fontSize: 12, fontWeight: '800', marginTop: 4 },
-  requestBody: { color: colors.muted, fontSize: 9, marginTop: 3 },
-  requestArrow: { color: colors.pink, fontSize: 24 },
-  messages: { padding: spacing.lg, paddingBottom: 30 },
+  matchIcon: { color: colors.gold, fontSize: 24, marginRight: 10 },
+  matchTitle: { color: colors.gold, fontSize: 12, fontWeight: '900' },
+  matchBody: { color: colors.mutedStrong, fontSize: 9, marginTop: 3 },
+  welcome: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: 14,
+    marginBottom: 16,
+  },
+  welcomeTitle: { color: colors.text, fontSize: 12, fontWeight: '800' },
+  welcomeText: { color: colors.mutedStrong, fontSize: 12, lineHeight: 18, marginTop: 7 },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
+  emptyIcon: { color: colors.pink, fontSize: 64 },
+  emptyTitle: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginTop: 15,
+  },
+  emptyBody: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginTop: 9,
+  },
+  primary: {
+    backgroundColor: colors.pink,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    padding: 15,
+    marginTop: 20,
+    paddingHorizontal: 22,
+  },
+  primaryText: { color: '#190915', fontWeight: '900' },
   messageWrap: { alignItems: 'flex-start', marginBottom: 12 },
   right: { alignItems: 'flex-end' },
   bubble: {
@@ -127,15 +267,6 @@ const styles = StyleSheet.create({
   bubbleRight: { backgroundColor: colors.violetSoft, borderBottomRightRadius: 4 },
   messageText: { color: colors.text, fontSize: 13, lineHeight: 18 },
   time: { color: colors.muted, fontSize: 9, marginTop: 4 },
-  quick: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  quickText: {
-    color: colors.mutedStrong,
-    backgroundColor: colors.surface,
-    borderRadius: radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 10,
-  },
   composer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -162,5 +293,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 8,
   },
+  sendDisabled: { opacity: 0.45 },
   sendText: { color: colors.ivoryText, fontSize: 18 },
 });

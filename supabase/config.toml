@@ -4,7 +4,7 @@ project_id = "tecap"
 verify_jwt = true
 
 [functions.expire-statuses]
-verify_jwt = false
+verify_jwt = true
 
 [functions.expire-statuses.schedule]
 cron = "0 * * * *"

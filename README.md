@@ -56,7 +56,7 @@ Si le bundler affiche `Unable to resolve "../../App" from .../expo/AppEntry.js`,
 ## Backend Supabase
 
 1. Créer un projet Supabase.
-2. Exécuter `supabase/migrations/0001_init.sql` dans l’éditeur SQL ou avec la Supabase CLI.
+2. Exécuter `supabase/migrations/0001_init.sql`, puis `supabase/migrations/0002_social_mvp.sql` dans l’éditeur SQL ou avec la Supabase CLI.
 3. Déployer les fonctions :
 
 ```bash
@@ -65,6 +65,29 @@ supabase functions deploy expire-statuses
 ```
 
 Les tables sensibles ont des policies RLS par utilisateur, événement et rôle. La clé `service_role` ne doit jamais être embarquée dans une app.
+
+### Projet de développement connecté
+
+Le dépôt a été vérifié et déployé sur le projet Supabase TÉCAP de développement :
+
+- référence : `bzijrulrqhnwycgmhcti` ;
+- région : `ca-central-1` ;
+- migrations appliquées : `init_p0`, `social_mvp` ;
+- tables publiques : RLS activée sur toutes les tables créées ;
+- Edge Functions actives : `validate-pass` et `expire-statuses`, toutes deux avec JWT obligatoire ;
+- types TypeScript du package `@tecap/supabase-types` synchronisés avec le schéma distant.
+
+Le projet ne possède actuellement **aucun scheduler distant `pg_cron` actif**. La configuration versionnée conserve le cron horaire attendu, mais l’exécution de `expire-statuses` doit encore être branchée via un scheduler autorisé (Supabase Cron, GitHub Actions ou autre) avec le secret serveur configuré dans Supabase Vault/EAS/CI, jamais dans l’application mobile.
+
+Pour activer le client mobile réel, renseigne uniquement les variables publiques dans `apps/mobile/.env` :
+
+```bash
+EXPO_PUBLIC_USE_SUPABASE=true
+EXPO_PUBLIC_SUPABASE_URL=https://bzijrulrqhnwycgmhcti.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<clé publishable/anon récupérée dans Supabase>
+```
+
+Le mode démo reste disponible si `EXPO_PUBLIC_USE_SUPABASE=false` ou si les clés sont absentes.
 
 ## Variables d’environnement
 
@@ -100,6 +123,31 @@ La branche mobile contient maintenant une expérience Boutique alignée sur les 
 - adaptateur `apps/mobile/src/lib/commerce.ts` remplaçable par RevenueCat ou un flux Supabase Edge Function.
 
 Les boutons d’achat sont volontairement en **mode démo** : aucun paiement réel n’est déclenché. Le futur branchement devra ajouter la vérification serveur, les reçus App Store/Google Play, l’idempotence et la synchronisation de l’entitlement avant de rendre les offres payantes disponibles.
+
+## MVP social démontrable
+
+Le mode local-first est maintenant un vrai parcours cliquable et persistant dans AsyncStorage :
+
+- `apps/mobile/src/lib/seedProfiles.ts` contient 30 profils fictifs adultes de Saint-Brieuc, de la côte et des villes voisines ;
+- `apps/mobile/src/state/useAppStore.ts` gère les likes, les 25 likes gratuits sur une fenêtre glissante de 24 h, les passes, matchs, messages, demandes « On se capte ce soir ? », notifications, blocages et statuts de soirée ;
+- les likes réciproques avec `willMatchOnLike: true` créent un match et une notification ;
+- la liste Messages n’affiche que les matchs et la conversation simule la réponse de l’autre membre avec une courte latence ;
+- les statuts de soirée sont publiables, modifiables, supprimables et expirent localement ;
+- la navigation utilise `MainTabs` et une stack propre par onglet : `DiscoverTab`, `OutingsTab`, `MessagesTab`, `ProfileTab`, `ShopTab` ;
+- les routes transverses passent par `apps/mobile/src/navigation/routes.ts`, ce qui évite les appels directs non gérés comme `navigation.navigate('Discover')` depuis une stack enfant ;
+- Notifications et Sécurité TÉCAP sont accessibles depuis le profil.
+
+### Démo rapide
+
+1. Lance l’application avec `pnpm --filter @tecap/mobile start` puis entre en mode démo.
+2. Dans `Découvrir`, passe quelques profils à gauche ; un pass ne consomme aucun like.
+3. Like Léa, Inès ou Camille : le scénario `willMatchOnLike` affiche le match et ajoute la conversation dans `Messages`.
+4. Ouvre la conversation, envoie un message et attends la réponse locale simulée.
+5. Ouvre `On se capte ce soir ?`, valide une demande puis consulte `Notifications` depuis `Profil`.
+6. Publie un statut dans `Sorties` → `T’as quoi de prévu ce soir ?` et vérifie qu’il apparaît dans `Qui sort ce soir ?`.
+7. Après 25 likes, `Découvrir` redirige vers `Boutique` sans perdre l’état des tabs.
+
+Pour réinitialiser la démo, utilise le bouton de réinitialisation prévu dans le profil ou supprime la clé AsyncStorage `tecap-demo-state-v2` depuis les outils de développement.
 
 ## RGPD et sécurité
 

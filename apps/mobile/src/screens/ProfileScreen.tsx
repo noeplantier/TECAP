@@ -3,8 +3,11 @@ import { colors, radius, spacing } from '../theme';
 import { useAppStore } from '../state/useAppStore';
 import { supabase } from '../lib/supabase';
 import { isBackendEnabled } from '../lib/runtime';
+import { BrandLogo } from '../components/BrandLogo';
 
-export function ProfileScreen() {
+type Navigation = { navigate: (screen: string, params?: unknown) => void };
+
+export function ProfileScreen({ navigation }: { navigation: Navigation }) {
   const setAuthenticated = useAppStore((state) => state.setAuthenticated);
   const city = useAppStore((state) => state.city);
   const logout = async () => {
@@ -14,7 +17,10 @@ export function ProfileScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Mon profil</Text>
+        <View style={styles.brandHeader}>
+          <BrandLogo size='small' />
+          <Text style={styles.context}>MON PROFIL</Text>
+        </View>
         <Text style={styles.more}>•••</Text>
       </View>
       <View style={styles.profile}>
@@ -41,6 +47,22 @@ export function ProfileScreen() {
           <Text style={styles.value}>Ma ville uniquement</Text>
         </View>
       </View>
+      <Pressable onPress={() => navigation.navigate('Notifications')} style={styles.linkCard}>
+        <Text style={styles.linkIcon}>✦</Text>
+        <View style={styles.linkCopy}>
+          <Text style={styles.linkTitle}>Centre de notifications</Text>
+          <Text style={styles.linkBody}>Matchs, messages et demandes de sortie</Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </Pressable>
+      <Pressable onPress={() => navigation.navigate('Safety')} style={styles.linkCard}>
+        <Text style={styles.linkIcon}>♢</Text>
+        <View style={styles.linkCopy}>
+          <Text style={styles.linkTitle}>Sécurité TÉCAP</Text>
+          <Text style={styles.linkBody}>Conseils, blocage et signalement</Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </Pressable>
       <Pressable onPress={logout} style={styles.logout}>
         <Text style={styles.logoutText}>Se déconnecter</Text>
       </Pressable>
@@ -62,6 +84,8 @@ const styles = StyleSheet.create({
   container: { flexGrow: 1, backgroundColor: colors.canvas, padding: spacing.lg, paddingTop: 28 },
   header: { flexDirection: 'row', justifyContent: 'space-between' },
   title: { color: colors.text, fontSize: 24, fontWeight: '800' },
+  brandHeader: { alignItems: 'center', gap: 2 },
+  context: { color: colors.gold, fontSize: 7, letterSpacing: 1.2, fontWeight: '900' },
   more: { color: colors.mutedStrong, fontSize: 18 },
   profile: { alignItems: 'center', marginVertical: 30 },
   avatar: {
@@ -85,6 +109,21 @@ const styles = StyleSheet.create({
   },
   cardTitle: { color: colors.text, fontWeight: '800', fontSize: 15, marginBottom: 10 },
   cardText: { color: colors.muted, fontSize: 13, lineHeight: 20 },
+  linkCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: 13,
+    marginBottom: 9,
+  },
+  linkIcon: { color: colors.pink, fontSize: 21, marginRight: 10 },
+  linkCopy: { flex: 1 },
+  linkTitle: { color: colors.text, fontSize: 12, fontWeight: '900' },
+  linkBody: { color: colors.muted, fontSize: 9, marginTop: 4 },
+  chevron: { color: colors.mutedStrong, fontSize: 22 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',

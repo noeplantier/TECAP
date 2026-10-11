@@ -1,17 +1,25 @@
+import { goToDiscover, goToMessages } from '../navigation/routes';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { demoPhotos } from '../lib/demo';
 import { colors, glow, radius, spacing } from '../theme';
+import { BrandLogo } from '../components/BrandLogo';
 
-type Navigation = { navigate: (screen: string) => void };
+type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 
 export function IncomingRequestScreen({ navigation }: { navigation: Navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.navigate('Chat')} accessibilityRole='button'>
+        <Pressable
+          onPress={() => goToMessages(navigation, 'Conversation')}
+          accessibilityRole='button'
+        >
           <Text style={styles.back}>‹</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>NOUVELLE DEMANDE</Text>
+        <View style={styles.brandHeader}>
+          <BrandLogo size='small' />
+          <Text style={styles.headerTitle}>NOUVELLE DEMANDE</Text>
+        </View>
         <Text style={styles.more}>•••</Text>
       </View>
       <View style={styles.content}>
@@ -27,14 +35,14 @@ export function IncomingRequestScreen({ navigation }: { navigation: Navigation }
           <Text style={styles.meta}>Alex · 27 ans · à 2 km · en ligne</Text>
         </View>
         <Pressable
-          onPress={() => navigation.navigate('Match')}
+          onPress={() => goToDiscover(navigation, 'Match')}
           style={[styles.primary, glow.pink]}
           accessibilityRole='button'
         >
           <Text style={styles.primaryText}>Voir la demande</Text>
         </Pressable>
         <Pressable
-          onPress={() => navigation.navigate('Discover')}
+          onPress={() => goToDiscover(navigation)}
           style={styles.secondary}
           accessibilityRole='button'
         >
@@ -53,6 +61,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { color: colors.text, fontSize: 32 },
   headerTitle: { color: colors.mutedStrong, fontSize: 10, letterSpacing: 1.3, fontWeight: '800' },
+  brandHeader: { alignItems: 'center', gap: 2 },
   more: { color: colors.mutedStrong, fontSize: 15 },
   content: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 55 },
   orbit: {

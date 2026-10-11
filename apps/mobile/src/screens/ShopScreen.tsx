@@ -1,3 +1,4 @@
+import { goToDiscover } from '../navigation/routes';
 import { useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { demoCommerce } from '../lib/commerce';
@@ -5,9 +6,10 @@ import { boostFeatures, demoPhotos, inviteFeatures, premiumFeatures } from '../l
 import { useAppStore } from '../state/useAppStore';
 import type { OfferId } from '../state/useAppStore';
 import { colors, glow, radius, spacing } from '../theme';
+import { BrandLogo } from '../components/BrandLogo';
 
 type Mode = 'invite' | 'premium' | 'boost';
-type Navigation = { navigate: (screen: string) => void };
+type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 const productCopy = {
   invite: {
     eyebrow: 'UNE INVITATION SPÉCIALE',
@@ -57,7 +59,7 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
     if (mode === 'premium') activatePremium(result.offerId);
     if (mode === 'boost') addBoosts(selected === 'boost-5' ? 5 : 1, result.offerId);
     if (mode === 'invite') addInvitationCredits(selected === 'invite-5' ? 5 : 1, result.offerId);
-    if (mode === 'invite') navigation.navigate('Invitation');
+    if (mode === 'invite') goToDiscover(navigation, 'Invitation');
     else
       Alert.alert(
         'C’est activé',
@@ -68,10 +70,7 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.logo}>
-            TÉ<Text style={styles.logoAccent}>CAP</Text>
-          </Text>
-          <Text style={styles.tagline}>T’es où ? On se capte ?</Text>
+          <BrandLogo size='medium' showTagline />
         </View>
         <Text style={styles.info}>ⓘ</Text>
       </View>
@@ -131,7 +130,7 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
         </Text>
       </Pressable>
       {mode === 'invite' && (
-        <Pressable onPress={() => navigation.navigate('Invitation')} style={styles.secondary}>
+        <Pressable onPress={() => goToDiscover(navigation, 'Invitation')} style={styles.secondary}>
           <Text style={styles.secondaryText}>Voir comment ça marche</Text>
         </Pressable>
       )}
@@ -258,9 +257,6 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  logo: { color: colors.text, fontSize: 28, fontWeight: '900', letterSpacing: 1 },
-  logoAccent: { color: colors.gold },
-  tagline: { color: colors.mutedStrong, fontSize: 10, marginTop: 3 },
   info: { color: colors.text, fontSize: 23 },
   modeBar: { flexDirection: 'row', gap: 7, marginVertical: 18 },
   mode: {

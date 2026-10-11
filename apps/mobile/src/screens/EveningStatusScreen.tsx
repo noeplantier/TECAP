@@ -1,51 +1,119 @@
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
+import { BrandLogo } from '../components/BrandLogo';
 import { demoPhotos } from '../lib/demo';
+import { goToDiscover } from '../navigation/routes';
+import { useAppStore } from '../state/useAppStore';
 import { colors, radius, spacing } from '../theme';
-type Navigation = { navigate: (screen: string) => void };
+
+type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
+const options = [
+  'Rien de prévu',
+  'Verre / bar',
+  'Restaurant',
+  'Concert',
+  'Club',
+  'Événement TÉCAP',
+  'Entre amis',
+  'Selon les rencontres',
+];
+
 export function EveningStatusScreen({ navigation }: { navigation: Navigation }) {
+  const city = useAppStore((state) => state.city);
+  const outingStatus = useAppStore((state) => state.outingStatus);
+  const publishOutingStatus = useAppStore((state) => state.publishOutingStatus);
+  const removeOutingStatus = useAppStore((state) => state.removeOutingStatus);
+  const [selected, setSelected] = useState(outingStatus?.activityType ?? 'Verre / bar');
+  const [venue, setVenue] = useState(outingStatus?.venue ?? 'L’Apsara');
+
+  const publish = () =>
+    publishOutingStatus({
+      activityType: selected,
+      city,
+      venue,
+      timeWindow: 'Ce soir · vers 21 h',
+      expiresAt: Date.now() + 8 * 60 * 60 * 1000,
+    });
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.navigate('Home')}>
+        <Pressable onPress={() => goToDiscover(navigation, 'Home')}>
           <Text style={styles.back}>‹</Text>
         </Pressable>
-        <Text style={styles.title}>Mon soir</Text>
+        <View style={styles.brandHeader}>
+          <BrandLogo size='small' />
+          <Text style={styles.context}>MON SOIR</Text>
+        </View>
         <Text style={styles.more}>•••</Text>
       </View>
       <View style={styles.hero}>
         <Image source={{ uri: demoPhotos.manon }} style={styles.image} />
         <View style={styles.shade} />
         <View style={styles.heroCopy}>
-          <Text style={styles.eyebrow}>✦ Sort ce soir — bar 🍸</Text>
-          <Text style={styles.name}>Manon, 25</Text>
-          <Text style={styles.meta}>Lieu choisi · L’Apsara</Text>
+          <Text style={styles.eyebrow}>✦ T’AS QUOI DE PRÉVU CE SOIR ?</Text>
+          <Text style={styles.name}>Partage ton intention</Text>
+          <Text style={styles.meta}>Volontaire · jamais de GPS automatique</Text>
         </View>
       </View>
-      <Text style={styles.venue}>À l’Apsara 👀</Text>
+      <Text style={styles.question}>Choisis ton plan du soir</Text>
+      <View style={styles.options}>
+        {options.map((option) => (
+          <Pressable
+            key={option}
+            onPress={() => setSelected(option)}
+            style={[styles.option, selected === option && styles.optionActive]}
+          >
+            <Text style={[styles.optionText, selected === option && styles.optionTextActive]}>
+              {option}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <Pressable
+        onPress={() => setVenue(venue === 'L’Apsara' ? 'Le Tire-Bouchon' : 'L’Apsara')}
+        style={styles.venuePicker}
+      >
+        <Text style={styles.venueLabel}>Lieu choisi volontairement</Text>
+        <Text style={styles.venueValue}>⌖ {venue} · changer</Text>
+      </Pressable>
       <View style={styles.info}>
         <Text style={styles.infoRow}>
-          ◷ <Text style={styles.infoStrong}>Encore 3 h 18</Text>
-          {`\n`} Ton statut disparaîtra à 02:00.
+          ◷ <Text style={styles.infoStrong}>Expire cette nuit</Text>
+          {`\n`}Ton statut disparaîtra automatiquement à 02:00.
         </Text>
         <Text style={styles.infoRow}>
-          ♧ <Text style={styles.infoStrong}>Visible par tes amis</Text>
-          {`\n`} Tu choisis qui peut voir ton soir.
+          ♧ <Text style={styles.infoStrong}>Tu gardes le contrôle</Text>
+          {`\n`}Tu peux modifier ou retirer ton statut à tout moment.
         </Text>
       </View>
-      <Pressable style={styles.primary}>
-        <Text style={styles.primaryText}>Modifier mon statut</Text>
+      <Pressable onPress={publish} style={styles.primary}>
+        <Text style={styles.primaryText}>
+          {outingStatus ? 'Mettre à jour mon statut' : 'Publier mon statut'}
+        </Text>
       </Pressable>
-      <Pressable style={styles.secondary}>
-        <Text style={styles.secondaryText}>Retirer mon statut</Text>
-      </Pressable>
+      {outingStatus && (
+        <Pressable onPress={removeOutingStatus} style={styles.secondary}>
+          <Text style={styles.secondaryText}>Retirer mon statut</Text>
+        </Pressable>
+      )}
       <Text style={styles.note}>
-        Pas de géolocalisation automatique. Le lieu a été choisi manuellement.
+        {outingStatus
+          ? 'Ton statut est visible dans Qui sort ce soir.'
+          : 'Rien ne sera publié sans ta validation.'}
       </Text>
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: colors.canvas, padding: spacing.lg, paddingTop: 28 },
+  container: {
+    flexGrow: 1,
+    backgroundColor: colors.canvas,
+    padding: spacing.lg,
+    paddingTop: 28,
+    paddingBottom: 30,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -53,17 +121,46 @@ const styles = StyleSheet.create({
     marginBottom: 17,
   },
   back: { color: colors.text, fontSize: 32 },
-  title: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  brandHeader: { alignItems: 'center', gap: 2 },
+  context: { color: colors.gold, fontSize: 7, letterSpacing: 1.2, fontWeight: '900' },
   more: { color: colors.mutedStrong },
   hero: { height: 205, borderRadius: radius.lg, overflow: 'hidden', position: 'relative' },
   image: { width: '100%', height: '100%' },
-  shade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(14,15,26,.36)' },
+  shade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(14,15,26,.44)' },
   heroCopy: { position: 'absolute', bottom: 16, left: 15 },
-  eyebrow: { color: colors.mutedStrong, fontSize: 10 },
-  name: { color: colors.text, fontSize: 21, fontWeight: '800', marginTop: 7 },
+  eyebrow: { color: colors.gold, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  name: { color: colors.text, fontSize: 22, fontWeight: '900', marginTop: 7 },
   meta: { color: colors.mutedStrong, fontSize: 10, marginTop: 3 },
-  venue: { color: colors.text, fontSize: 19, fontWeight: '800', marginVertical: 15 },
-  info: { backgroundColor: colors.surface, borderRadius: radius.md, padding: 15, gap: 14 },
+  question: { color: colors.text, fontSize: 18, fontWeight: '900', marginTop: 18 },
+  options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 11 },
+  option: {
+    borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    backgroundColor: colors.surface,
+  },
+  optionActive: { borderColor: colors.pink, backgroundColor: colors.pinkWash },
+  optionText: { color: colors.mutedStrong, fontSize: 10 },
+  optionTextActive: { color: colors.text, fontWeight: '800' },
+  venuePicker: {
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: 13,
+    marginTop: 14,
+  },
+  venueLabel: { color: colors.muted, fontSize: 9 },
+  venueValue: { color: colors.text, fontSize: 12, fontWeight: '800', marginTop: 5 },
+  info: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: 15,
+    gap: 14,
+    marginTop: 13,
+  },
   infoRow: { color: colors.mutedStrong, fontSize: 11, lineHeight: 18 },
   infoStrong: { color: colors.text, fontWeight: '700' },
   primary: {
@@ -73,7 +170,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 15,
   },
-  primaryText: { color: colors.ivoryText, fontWeight: '800' },
+  primaryText: { color: colors.ivoryText, fontWeight: '900' },
   secondary: {
     backgroundColor: colors.surface,
     borderRadius: radius.pill,
@@ -82,5 +179,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   secondaryText: { color: colors.text, fontWeight: '700', fontSize: 12 },
-  note: { color: colors.muted, textAlign: 'center', fontSize: 9, lineHeight: 15, marginTop: 20 },
+  note: { color: colors.muted, textAlign: 'center', fontSize: 9, lineHeight: 15, marginTop: 18 },
 });

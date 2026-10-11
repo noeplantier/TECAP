@@ -1,5 +1,10 @@
+import { demoProfiles } from './seedProfiles';
+
+export { demoProfiles } from './seedProfiles';
+export type { DemoProfile } from './seedProfiles';
+
 export const demoPhotos = {
-  lea: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=85',
+  lea: demoProfiles[0]!.photo,
   manon:
     'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=85',
   night:
@@ -8,45 +13,6 @@ export const demoPhotos = {
     'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=85',
   alex: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=85',
 };
-
-export const demoProfiles = [
-  {
-    id: 'lea',
-    name: 'Léa',
-    age: 24,
-    city: 'Rennes',
-    distance: '1 km',
-    status: 'Sort ce soir — bar 🍸',
-    venue: 'Centre · zone 1 km',
-    bio: 'Un verre, un bon son, et on voit ?',
-    photo: demoPhotos.lea,
-    tags: ['Musique live', 'Voyages', 'Terrasses'],
-  },
-  {
-    id: 'lucas',
-    name: 'Lucas',
-    age: 25,
-    city: 'Rennes',
-    distance: '2 km',
-    status: 'Sort ce soir — bar 🍸',
-    venue: 'Centre · zone 2 km',
-    bio: 'Partant pour une terrasse et une bonne playlist.',
-    photo: demoPhotos.friends,
-    tags: ['Terrasses', 'Concerts'],
-  },
-  {
-    id: 'alex',
-    name: 'Alex',
-    age: 27,
-    city: 'Rennes',
-    distance: '2 km',
-    status: 'On se capte ce soir ?',
-    venue: 'L’Apsara · en ligne',
-    bio: 'Un verre, une belle énergie, et on improvise.',
-    photo: demoPhotos.alex,
-    tags: ['Bars', 'Live', 'Spontané'],
-  },
-];
 
 export const demoMessages = [
   { id: '1', side: 'left' as const, text: 'Hey ! T’as prévu quoi ce soir ? 👀', time: '21:33' },

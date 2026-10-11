@@ -176,6 +176,23 @@ type DevicePushToken = Base & {
   disabled_at: string | null;
   updated_at: string;
 };
+type PointOfInterest = Base & {
+  city_slug: string;
+  category: 'tecap_event' | 'bar' | 'restaurant' | 'club' | 'concert' | 'hotspot' | 'user_plan';
+  name: string;
+  subtitle: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  participant_count: number;
+  accent: 'pink' | 'gold' | 'magenta';
+  icon: string;
+  is_premium: boolean;
+  is_published: boolean;
+  starts_at: string | null;
+  action: 'event' | 'outings' | 'invite' | 'profile';
+  updated_at: string;
+};
 
 type InsertOf<Row extends object> = Partial<Row> & Omit<Row, 'id' | 'created_at'>;
 
@@ -212,6 +229,7 @@ export type Database = {
       blocks: TableContract<Block, Block>;
       user_location_private: TableContract<PrivateLocation, PrivateLocation>;
       device_push_tokens: TableContract<DevicePushToken, InsertOf<DevicePushToken>>;
+      points_of_interest: TableContract<PointOfInterest, InsertOf<PointOfInterest>>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -227,6 +245,10 @@ export type Database = {
       };
       expire_evening_statuses: { Args: Record<string, never>; Returns: number };
       is_staff_or_admin: { Args: Record<string, never>; Returns: boolean };
+      get_points_of_interest: {
+        Args: { p_city_slug?: string; p_category?: string; p_limit?: number };
+        Returns: Json;
+      };
     };
     Enums: { user_role: UserRole; lead_status: LeadStatus; pass_state: PassState };
     CompositeTypes: Record<string, never>;

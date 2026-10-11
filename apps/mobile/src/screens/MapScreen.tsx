@@ -2,42 +2,62 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BrandLogo } from '../components/BrandLogo';
-import { type HotspotMarker, MapCanvas } from '../components/MapCanvas';
+import { type MapMarker, MapCanvas } from '../components/MapCanvas';
 import {
   deletePrivateLocation,
   fetchBackendHotspots,
   fetchBackendLaunchAreas,
+  fetchBackendPointsOfInterest,
   savePrivateLocation,
   setBackendCity,
   setBackendMapVisibility,
 } from '../lib/backend';
-import { demoVenues } from '../lib/demo';
-import {
-  requestApproximateLocation,
-  SAINT_BRIEUC_REGION,
-  simulatedSaintBrieucLocation,
-} from '../lib/geolocation';
+import { demoPois, categoryLabels, SAINT_BRIEUC_CENTER, type TecapPoi } from '../lib/mapData';
 import { isBackendEnabled } from '../lib/runtime';
-import { goToOutings } from '../navigation/routes';
+import { requestApproximateLocation, simulatedSaintBrieucLocation } from '../lib/geolocation';
 import { useAppStore } from '../state/useAppStore';
 import { supabase } from '../lib/supabase';
 import { colors, glow, radius, spacing } from '../theme';
 
 type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
-type Filter = 'Tous' | 'Verre' | 'Restaurant' | 'Concert' | 'Club' | 'Sans plan';
+type Filter = 'all' | 'tonight' | 'bar' | 'restaurant' | 'concert' | 'club' | 'tecap_event';
 
-const venueCoordinates: Record<string, { latitude: number; longitude: number }> = {
-  'L’Apsara': { latitude: 48.5162, longitude: -2.7622 },
-  'Le Velvet Bar': { latitude: 48.5134, longitude: -2.7681 },
-  'La Verrière': { latitude: 48.5119, longitude: -2.7645 },
-  'Club Horizon': { latitude: 48.5181, longitude: -2.7594 },
-  'La Citrouille': { latitude: 48.5154, longitude: -2.7702 },
-};
+const filters: Array<{ id: Filter; label: string }> = [
+  { id: 'all', label: 'Tout' },
+  { id: 'tonight', label: 'Ce soir' },
+  { id: 'bar', label: 'Bars' },
+  { id: 'restaurant', label: 'Restaurants' },
+  { id: 'concert', label: 'Concerts' },
+  { id: 'club', label: 'Clubs' },
+  { id: 'tecap_event', label: 'TÉCAP Night' },
+];
 
-function filterMatches(filter: Filter, activityType: string) {
-  if (filter === 'Tous') return true;
-  if (filter === 'Sans plan') return activityType === 'other';
-  return activityType.toLowerCase().includes(filter.toLowerCase());
+function matchesFilter(poi: TecapPoi, filter: Filter) {
+  if (filter === 'all') return true;
+  if (filter === 'tonight') return poi.category === 'hotspot' || poi.participantCount > 0;
+  return poi.category === filter;
+}
+
+function backendPoiToTecap(
+  poi: NonNullable<Awaited<ReturnType<typeof fetchBackendPointsOfInterest>>[number]>,
+): TecapPoi {
+  return {
+    id: poi.id,
+    category: poi.category,
+    name: poi.name,
+    subtitle: poi.subtitle,
+    description: poi.description,
+    latitude: Number(poi.latitude),
+    longitude: Number(poi.longitude),
+    city: poi.city_slug === 'saint-brieuc' ? 'Saint-Brieuc' : poi.city_slug,
+    citySlug: poi.city_slug,
+    participantCount: poi.participant_count,
+    accent: poi.accent,
+    icon: poi.icon,
+    isPremium: poi.is_premium,
+    startsAt: poi.starts_at ?? undefined,
+    action: poi.action,
+  };
 }
 
 export function MapScreen({ navigation }: { navigation: Navigation }) {
@@ -50,7 +70,8 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
   const setMapVisible = useAppStore((state) => state.setMapVisible);
   const setApproximateLocation = useAppStore((state) => state.setApproximateLocation);
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState<Filter>('Tous');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [selectedPoi, setSelectedPoi] = useState<TecapPoi | null>(null);
   const launchAreasQuery = useQuery({
     queryKey: ['backend-launch-areas'],
     queryFn: fetchBackendLaunchAreas,
@@ -58,11 +79,40 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
   });
   const activeArea =
     launchAreasQuery.data?.find((area) => area.name === city) ?? launchAreasQuery.data?.[0];
-  const hotspotsQuery = useQuery({
-    queryKey: ['backend-hotspots', activeArea?.slug ?? city],
-    queryFn: () => fetchBackendHotspots(activeArea?.slug),
-    enabled: isBackendEnabled && Boolean(activeArea),
+  const citySlug = activeArea?.slug ?? 'saint-brieuc';
+  const poisQuery = useQuery({
+    queryKey: ['backend-points-of-interest', citySlug],
+    queryFn: () => fetchBackendPointsOfInterest(citySlug),
+    enabled: isBackendEnabled,
   });
+  const hotspotsQuery = useQuery({
+    queryKey: ['backend-hotspots', citySlug],
+    queryFn: () => fetchBackendHotspots(citySlug),
+    enabled: isBackendEnabled,
+  });
+  const backendPois = (poisQuery.data ?? []).map(backendPoiToTecap);
+  const fallbackPois = useMemo(() => {
+    if (!isBackendEnabled) return demoPois;
+    const hotspotPois = (hotspotsQuery.data ?? []).map((hotspot, index): TecapPoi => ({
+      id: `backend-hotspot-${hotspot.venue}-${hotspot.activityType}`,
+      category: 'hotspot',
+      name: hotspot.venue,
+      subtitle: `${hotspot.memberCount} personnes · ${hotspot.activityType}`,
+      description: 'Zone agrégée issue des statuts publics expirant ce soir.',
+      latitude: SAINT_BRIEUC_CENTER.latitude + ((index % 3) - 1) * 0.003,
+      longitude: SAINT_BRIEUC_CENTER.longitude + ((index % 3) - 1) * 0.004,
+      city,
+      citySlug,
+      participantCount: hotspot.memberCount,
+      accent: index % 2 ? 'magenta' : 'pink',
+      icon: '◎',
+      action: 'outings',
+    }));
+    return hotspotPois;
+  }, [city, citySlug, hotspotsQuery.data]);
+  const allPois = backendPois.length > 0 ? backendPois : fallbackPois;
+  const visiblePois = allPois.filter((poi) => matchesFilter(poi, filter));
+  const activePeople = visiblePois.reduce((sum, poi) => sum + poi.participantCount, 0);
   const mapRegion = activeArea
     ? {
         latitude: Number(activeArea.center_lat),
@@ -70,50 +120,23 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
         latitudeDelta: 0.12,
         longitudeDelta: 0.12,
       }
-    : SAINT_BRIEUC_REGION;
+    : { ...SAINT_BRIEUC_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 };
 
   useEffect(() => {
     if (!isBackendEnabled) return;
     const channel = supabase
-      .channel(`tecap-map-statuses-${city}`)
+      .channel(`tecap-map-pois-${citySlug}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'points_of_interest' }, () => {
+        void queryClient.invalidateQueries({ queryKey: ['backend-points-of-interest', citySlug] });
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'evening_statuses' }, () => {
-        void queryClient.invalidateQueries({
-          queryKey: ['backend-hotspots', activeArea?.slug ?? city],
-        });
+        void queryClient.invalidateQueries({ queryKey: ['backend-hotspots', citySlug] });
       })
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [activeArea?.slug, city, queryClient]);
-
-  const fallbackHotspots = useMemo(
-    () =>
-      demoVenues.map((venue) => ({
-        city,
-        venue: venue.name,
-        activityType: venue.type.toLowerCase(),
-        memberCount: venue.count,
-      })),
-    [city],
-  );
-  const hotspots = isBackendEnabled ? (hotspotsQuery.data ?? []) : fallbackHotspots;
-  const filteredHotspots = hotspots.filter((hotspot) =>
-    filterMatches(filter, hotspot.activityType),
-  );
-  const markers: HotspotMarker[] = filteredHotspots.map((hotspot, index) => {
-    const coordinate = venueCoordinates[hotspot.venue] ?? {
-      latitude: SAINT_BRIEUC_REGION.latitude + (index % 3) * 0.003,
-      longitude: SAINT_BRIEUC_REGION.longitude + (index % 3) * 0.004,
-    };
-    return {
-      id: `${hotspot.venue}-${hotspot.activityType}`,
-      title: hotspot.venue,
-      subtitle: `${hotspot.memberCount} personne(s) · ${hotspot.activityType}`,
-      ...coordinate,
-      accent: index % 2 === 0 ? 'pink' : 'gold',
-    };
-  });
+  }, [citySlug, queryClient]);
 
   const applyApproximateLocation = async () => {
     const result = await requestApproximateLocation();
@@ -125,9 +148,7 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
       }
       Alert.alert(
         'Position non activée',
-        Platform.OS === 'web'
-          ? 'Aucun souci : la démo web utilise Saint-Brieuc sans exposer ta position exacte.'
-          : `Aucun souci : tu peux continuer avec ${city} ou choisir ta ville manuellement. Ta position exacte ne sera jamais affichée.`,
+        'La carte reste centrée sur Saint-Brieuc sans exposer ta position exacte.',
       );
       return;
     }
@@ -142,29 +163,8 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
     if (isBackendEnabled && Platform.OS !== 'web') await savePrivateLocation(next);
     Alert.alert(
       'Position approximative activée',
-      'Elle sert uniquement à améliorer ta zone de découverte. Elle reste privée.',
+      'Elle reste privée et sert uniquement à améliorer ta zone.',
     );
-  };
-
-  const simulateLocation = async () => {
-    const simulated = simulatedSaintBrieucLocation();
-    const next = { ...simulated, updatedAt: Date.now() };
-    setLocationConsent('granted');
-    setApproximateLocation(next);
-    if (isBackendEnabled && Platform.OS !== 'web') await savePrivateLocation(next);
-    Alert.alert(
-      'Position de démo activée',
-      'Saint-Brieuc est utilisé comme position approximative de démonstration.',
-    );
-  };
-
-  const toggleVisibility = async () => {
-    const next = !mapVisible;
-    setMapVisible(next);
-    if (isBackendEnabled) await setBackendMapVisibility(next);
-    await queryClient.invalidateQueries({
-      queryKey: ['backend-hotspots', activeArea?.slug ?? city],
-    });
   };
 
   const chooseCity = () => {
@@ -174,20 +174,31 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
       setCity(name);
       if (isBackendEnabled) void setBackendCity(name, area?.slug);
     };
-    Alert.alert(
-      'Choisir ma ville',
-      'La ville sert à filtrer les profils et les sorties. Les villes fermées restent indisponibles jusqu’à leur ouverture.',
-      names
-        .map((name) => ({ text: name, onPress: () => selectCity(name) }))
-        .concat([{ text: 'Annuler', onPress: () => undefined }]),
-    );
+    Alert.alert('Choisir ma ville', 'La ville filtre les profils et les sorties partagées.', [
+      ...names.map((name) => ({ text: name, onPress: () => selectCity(name) })),
+      { text: 'Annuler', onPress: () => undefined },
+    ]);
+  };
+
+  const toggleVisibility = async () => {
+    const next = !mapVisible;
+    setMapVisible(next);
+    if (isBackendEnabled) await setBackendMapVisibility(next);
+    await queryClient.invalidateQueries({ queryKey: ['backend-hotspots', citySlug] });
   };
 
   const clearPrivateLocation = async () => {
     setLocationConsent('unknown');
     setApproximateLocation(undefined);
     if (isBackendEnabled) await deletePrivateLocation();
-    Alert.alert('Position supprimée', 'TÉCAP utilisera désormais ta ville manuelle.');
+    Alert.alert('Position supprimée', 'TÉCAP utilise désormais ta ville manuelle.');
+  };
+
+  const openPoiAction = (poi: TecapPoi) => {
+    setSelectedPoi(null);
+    if (poi.action === 'event') navigation.navigate('Night');
+    else if (poi.action === 'invite') navigation.navigate('Invitation');
+    else navigation.navigate('OutingsHome');
   };
 
   return (
@@ -195,7 +206,7 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
       <View style={styles.header}>
         <Pressable
           onPress={() =>
-            navigation.goBack ? navigation.goBack() : goToOutings(navigation, 'OutingsHome')
+            navigation.goBack ? navigation.goBack() : navigation.navigate('OutingsHome')
           }
           accessibilityLabel='Retour'
         >
@@ -203,37 +214,104 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
         </Pressable>
         <View style={styles.brandHeader}>
           <BrandLogo size='small' />
-          <Text style={styles.context}>{city.toUpperCase()} · CE SOIR</Text>
+          <Text style={styles.context}>TÉCAP MAP · {city.toUpperCase()}</Text>
         </View>
         <Text style={styles.more}>ⓘ</Text>
       </View>
-      <Text style={styles.title}>Autour de toi ce soir</Text>
-      <Text style={styles.subtitle}>
-        {filteredHotspots.length > 0
-          ? `${city} est actif ce soir · ${filteredHotspots.length} hotspot(s) public(s)`
-          : `Pas encore d’activité visible à ${city}.`}
-      </Text>
-      <View style={styles.filters}>
-        {(['Tous', 'Verre', 'Restaurant', 'Concert', 'Club', 'Sans plan'] as Filter[]).map(
-          (item) => (
-            <Pressable
-              key={item}
-              onPress={() => setFilter(item)}
-              style={[styles.filter, filter === item && styles.filterActive]}
-            >
-              <Text style={[styles.filterText, filter === item && styles.filterTextActive]}>
-                {item}
-              </Text>
-            </Pressable>
-          ),
-        )}
+      <View style={styles.titleRow}>
+        <View style={styles.titleCopy}>
+          <Text style={styles.kicker}>CARTE SOCIALE · CE SOIR</Text>
+          <Text style={styles.title}>Qui sort ce soir ?</Text>
+          <Text style={styles.subtitle}>
+            Des lieux choisis, des événements et des zones d’ambiance autour de toi.
+          </Text>
+        </View>
+        <View style={styles.peopleBadge}>
+          <Text style={styles.peopleCount}>{activePeople || 26}</Text>
+          <Text style={styles.peopleLabel}>plans partagés</Text>
+        </View>
       </View>
-      <MapCanvas initialRegion={mapRegion} markers={markers} />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filters}
+      >
+        {filters.map((item) => (
+          <Pressable
+            key={item.id}
+            onPress={() => setFilter(item.id)}
+            style={[styles.filter, filter === item.id && styles.filterActive]}
+          >
+            <Text style={[styles.filterText, filter === item.id && styles.filterTextActive]}>
+              {item.label}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+      <MapCanvas
+        initialRegion={mapRegion}
+        markers={visiblePois as MapMarker[]}
+        onMarkerPress={setSelectedPoi}
+      />
+      <View style={styles.mapActions}>
+        <Pressable
+          onPress={() => navigation.navigate('EveningStatus')}
+          style={[styles.primaryAction, glow.pink]}
+        >
+          <Text style={styles.primaryActionText}>T’AS QUOI DE PRÉVU CE SOIR ?</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => navigation.navigate('OutingsHome')}
+          style={styles.secondaryAction}
+        >
+          <Text style={styles.secondaryActionText}>QUI SORT CE SOIR ?</Text>
+        </Pressable>
+      </View>
+      {selectedPoi && (
+        <View
+          style={[
+            styles.bottomSheet,
+            selectedPoi.accent === 'gold' ? styles.bottomSheetGold : styles.bottomSheetPink,
+          ]}
+        >
+          <View style={styles.sheetHandle} />
+          <View style={styles.sheetHead}>
+            <View style={[styles.sheetIcon, selectedPoi.accent === 'gold' && styles.sheetIconGold]}>
+              <Text style={styles.sheetIconText}>{selectedPoi.icon}</Text>
+            </View>
+            <View style={styles.sheetCopy}>
+              <Text style={styles.sheetCategory}>{categoryLabels[selectedPoi.category]}</Text>
+              <Text style={styles.sheetTitle}>{selectedPoi.name}</Text>
+              <Text style={styles.sheetSubtitle}>{selectedPoi.subtitle}</Text>
+            </View>
+            <Pressable onPress={() => setSelectedPoi(null)}>
+              <Text style={styles.close}>×</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.sheetDescription}>{selectedPoi.description}</Text>
+          {selectedPoi.startsAt && <Text style={styles.sheetTime}>◷ {selectedPoi.startsAt}</Text>}
+          <Pressable
+            onPress={() => openPoiAction(selectedPoi)}
+            style={[
+              styles.sheetCta,
+              selectedPoi.accent === 'gold' ? styles.sheetCtaGold : styles.sheetCtaPink,
+            ]}
+          >
+            <Text style={styles.sheetCtaText}>
+              {selectedPoi.action === 'event'
+                ? 'Voir l’événement'
+                : selectedPoi.action === 'invite'
+                  ? 'Proposer de se capter'
+                  : 'Voir qui sort'}
+            </Text>
+          </Pressable>
+        </View>
+      )}
       <View style={styles.privacyCard}>
         <View style={styles.privacyCopy}>
-          <Text style={styles.privacyTitle}>Je suis visible sur la carte</Text>
+          <Text style={styles.privacyTitle}>Visibilité volontaire uniquement</Text>
           <Text style={styles.privacyBody}>
-            Seuls des lieux choisis et des groupes anonymisés apparaissent. Jamais ta position
+            Les markers sont des lieux choisis ou des groupes anonymisés. Jamais une position
             exacte.
           </Text>
         </View>
@@ -247,13 +325,11 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
         </Pressable>
       </View>
       <View style={styles.locationCard}>
-        <Text style={styles.locationTitle}>Ta zone de découverte</Text>
+        <Text style={styles.locationTitle}>Ta zone de découverte · {city}</Text>
         <Text style={styles.locationBody}>
           {locationConsent === 'granted'
             ? `Position approximative activée${approximateLocation?.accuracyM ? ` · précision ${Math.round(approximateLocation.accuracyM)} m` : ''}.`
-            : locationConsent === 'denied'
-              ? 'Position refusée · tu utilises une ville manuelle.'
-              : 'Choisis une ville ou utilise une position approximative.'}
+            : 'La carte reste sur une zone publique tant que tu ne partages rien.'}
         </Text>
         <View style={styles.locationActions}>
           <Pressable onPress={applyApproximateLocation} style={styles.locationButton}>
@@ -264,52 +340,14 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
           </Pressable>
           {locationConsent === 'granted' && (
             <Pressable onPress={clearPrivateLocation} style={styles.locationButtonSecondary}>
-              <Text style={styles.locationButtonSecondaryText}>Supprimer ma position</Text>
-            </Pressable>
-          )}
-          {__DEV__ && (
-            <Pressable onPress={simulateLocation} style={styles.locationButtonSecondary}>
-              <Text style={styles.locationButtonSecondaryText}>Simuler Saint-Brieuc</Text>
+              <Text style={styles.locationButtonSecondaryText}>Supprimer</Text>
             </Pressable>
           )}
         </View>
       </View>
-      <Text style={styles.section}>Les hotspots du soir</Text>
-      {filteredHotspots.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>On élargit bientôt autour de {city}.</Text>
-          <Text style={styles.emptyBody}>
-            Publie ton statut, regarde les événements ou élargis tes préférences pour créer plus
-            d’occasions.
-          </Text>
-          <Pressable
-            onPress={() => navigation.navigate('EveningStatus')}
-            style={styles.emptyButton}
-          >
-            <Text style={styles.emptyButtonText}>Publier mon statut</Text>
-          </Pressable>
-        </View>
-      ) : (
-        filteredHotspots.map((hotspot) => (
-          <Pressable
-            key={`${hotspot.venue}-${hotspot.activityType}`}
-            onPress={() => navigation.navigate('OutingsHome')}
-            style={styles.venue}
-          >
-            <Text style={styles.pinIcon}>✦</Text>
-            <View style={styles.venueCopy}>
-              <Text style={styles.venueName}>{hotspot.venue}</Text>
-              <Text style={styles.venueMeta}>
-                {hotspot.memberCount} personnes · {hotspot.activityType}
-              </Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </Pressable>
-        ))
-      )}
       <Text style={styles.note}>
-        Les membres indiquent volontairement leur intention de sortie. Un statut n’est jamais une
-        preuve de présence ni un consentement à une rencontre.
+        Les coordonnées démo sont approximatives. Un statut de sortie n’est jamais une preuve de
+        présence ni un consentement.
       </Text>
     </ScrollView>
   );
@@ -321,26 +359,111 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     padding: spacing.lg,
     paddingTop: 28,
-    paddingBottom: 32,
+    paddingBottom: 34,
   },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  back: { color: colors.text, fontSize: 32 },
+  back: {
+    color: colors.text,
+    fontSize: 32,
+    textShadowColor: colors.pinkGlow,
+    textShadowRadius: 10,
+  },
   brandHeader: { alignItems: 'center', gap: 2 },
-  context: { color: colors.gold, fontSize: 7, letterSpacing: 1.2, fontWeight: '900' },
-  more: { color: colors.mutedStrong, fontSize: 16 },
-  title: { color: colors.text, fontSize: 27, lineHeight: 32, fontWeight: '900', marginTop: 25 },
-  subtitle: { color: colors.mutedStrong, fontSize: 12, lineHeight: 18, marginTop: 7 },
-  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 16 },
+  context: { color: colors.goldLight, fontSize: 7, letterSpacing: 1.2, fontWeight: '900' },
+  more: { color: colors.text, fontSize: 16 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 22, marginBottom: 14 },
+  titleCopy: { flex: 1, paddingRight: 10 },
+  kicker: { color: colors.pinkLight, fontSize: 9, letterSpacing: 1.4, fontWeight: '900' },
+  title: {
+    color: colors.text,
+    fontSize: 29,
+    lineHeight: 33,
+    fontWeight: '900',
+    marginTop: 5,
+    textShadowColor: colors.pinkGlow,
+    textShadowRadius: 10,
+  },
+  subtitle: { color: colors.mutedStrong, fontSize: 12, lineHeight: 17, marginTop: 7 },
+  peopleBadge: {
+    width: 72,
+    borderRadius: radius.md,
+    borderColor: colors.goldHot,
+    borderWidth: 1,
+    backgroundColor: colors.goldWash,
+    padding: 9,
+    alignItems: 'center',
+    ...glow.gold,
+  },
+  peopleCount: { color: colors.goldLight, fontSize: 22, fontWeight: '900' },
+  peopleLabel: { color: colors.mutedStrong, fontSize: 8, textAlign: 'center' },
+  filters: { gap: 8, paddingBottom: 14 },
   filter: {
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.pill,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 8,
+    backgroundColor: colors.surface,
   },
-  filterActive: { borderColor: colors.pink, backgroundColor: colors.pinkWash },
-  filterText: { color: colors.mutedStrong, fontSize: 10 },
-  filterTextActive: { color: colors.text, fontWeight: '800' },
+  filterActive: { borderColor: colors.hotPink, backgroundColor: colors.pinkWash, ...glow.pink },
+  filterText: { color: colors.mutedStrong, fontSize: 10, fontWeight: '700' },
+  filterTextActive: { color: colors.text, fontWeight: '900' },
+  mapActions: { gap: 8, marginTop: 10 },
+  primaryAction: {
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderRadius: radius.pill,
+    backgroundColor: colors.pinkElectric,
+  },
+  primaryActionText: { color: colors.text, fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+  secondaryAction: {
+    alignItems: 'center',
+    borderColor: colors.goldSoft,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingVertical: 11,
+    backgroundColor: colors.surface,
+  },
+  secondaryActionText: {
+    color: colors.goldLight,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  bottomSheet: { borderRadius: radius.lg, borderWidth: 1, padding: 15, marginTop: 12 },
+  bottomSheetPink: { borderColor: colors.hotPink, backgroundColor: colors.pinkWash, ...glow.pink },
+  bottomSheetGold: { borderColor: colors.goldHot, backgroundColor: colors.goldWash, ...glow.gold },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 42,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.muted,
+    marginBottom: 12,
+  },
+  sheetHead: { flexDirection: 'row', alignItems: 'center' },
+  sheetIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.pinkElectric,
+    marginRight: 11,
+  },
+  sheetIconGold: { backgroundColor: colors.goldHot },
+  sheetIconText: { color: colors.text, fontSize: 21, fontWeight: '900' },
+  sheetCopy: { flex: 1 },
+  sheetCategory: { color: colors.goldLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  sheetTitle: { color: colors.text, fontSize: 17, fontWeight: '900', marginTop: 2 },
+  sheetSubtitle: { color: colors.mutedStrong, fontSize: 10, marginTop: 3 },
+  close: { color: colors.text, fontSize: 26, paddingLeft: 8 },
+  sheetDescription: { color: colors.mutedStrong, fontSize: 11, lineHeight: 16, marginTop: 12 },
+  sheetTime: { color: colors.goldLight, fontSize: 11, fontWeight: '800', marginTop: 8 },
+  sheetCta: { alignItems: 'center', borderRadius: radius.pill, paddingVertical: 13, marginTop: 13 },
+  sheetCtaPink: { backgroundColor: colors.pinkElectric },
+  sheetCtaGold: { backgroundColor: colors.goldHot },
+  sheetCtaText: { color: colors.ivoryText, fontSize: 12, fontWeight: '900' },
   privacyCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -391,45 +514,5 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   locationButtonSecondaryText: { color: colors.goldLight, fontSize: 10, fontWeight: '800' },
-  section: { color: colors.text, fontSize: 18, fontWeight: '900', marginTop: 20, marginBottom: 10 },
-  empty: {
-    padding: 18,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderColor: colors.line,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  emptyTitle: { color: colors.text, textAlign: 'center', fontSize: 14, fontWeight: '900' },
-  emptyBody: {
-    color: colors.muted,
-    textAlign: 'center',
-    fontSize: 11,
-    lineHeight: 16,
-    marginTop: 6,
-  },
-  emptyButton: {
-    marginTop: 12,
-    backgroundColor: colors.pink,
-    borderRadius: radius.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-  },
-  emptyButtonText: { color: colors.ivoryText, fontWeight: '900', fontSize: 11 },
-  venue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    marginBottom: 8,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderColor: colors.line,
-    borderWidth: 1,
-  },
-  pinIcon: { color: colors.pink, fontSize: 20, marginRight: 11 },
-  venueCopy: { flex: 1 },
-  venueName: { color: colors.text, fontSize: 12, fontWeight: '800' },
-  venueMeta: { color: colors.muted, fontSize: 10, marginTop: 4 },
-  chevron: { color: colors.mutedStrong, fontSize: 21 },
   note: { color: colors.muted, fontSize: 9, lineHeight: 14, textAlign: 'center', marginTop: 18 },
 });

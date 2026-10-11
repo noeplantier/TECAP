@@ -1,6 +1,7 @@
 import { goToDiscover } from '../navigation/routes';
 import { useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { fetchBackendEntitlements } from '../lib/backend';
 import { demoCommerce } from '../lib/commerce';
@@ -8,7 +9,7 @@ import { boostFeatures, demoPhotos, inviteFeatures, premiumFeatures } from '../l
 import { isBackendEnabled } from '../lib/runtime';
 import { useAppStore } from '../state/useAppStore';
 import type { OfferId } from '../state/useAppStore';
-import { colors, glow, radius, spacing } from '../theme';
+import { colors, glow, gradients, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
 
 type Mode = 'invite' | 'premium' | 'boost';
@@ -157,17 +158,17 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
         ))}
       </View>
       <OfferSelector mode={mode} selected={selected} onSelect={setSelected} />
-      <Pressable
-        onPress={buy}
-        style={[
-          styles.cta,
-          mode === 'invite' ? styles.ctaPink : styles.ctaGold,
-          mode === 'invite' ? glow.pink : glow.gold,
-        ]}
-      >
-        <Text style={styles.ctaText}>
-          {copy.cta} <Text style={styles.ctaArrow}>›</Text>
-        </Text>
+      <Pressable onPress={buy} style={styles.ctaShell}>
+        <LinearGradient
+          colors={mode === 'invite' ? gradients.primaryCta : gradients.premiumCta}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.cta, mode === 'invite' ? glow.pink : glow.gold]}
+        >
+          <Text style={styles.ctaText}>
+            {copy.cta} <Text style={styles.ctaArrow}>›</Text>
+          </Text>
+        </LinearGradient>
       </Pressable>
       {mode === 'invite' && (
         <Pressable onPress={() => goToDiscover(navigation, 'Invitation')} style={styles.secondary}>
@@ -512,9 +513,8 @@ const styles = StyleSheet.create({
   offerName: { color: colors.mutedStrong, fontSize: 11, marginTop: 3 },
   offerPrice: { color: colors.text, fontSize: 20, fontWeight: '900', marginTop: 4 },
   offerDetail: { color: colors.muted, fontSize: 9, marginTop: 4 },
-  cta: { borderRadius: radius.pill, alignItems: 'center', padding: 16, marginTop: 17 },
-  ctaPink: { backgroundColor: colors.pinkElectric },
-  ctaGold: { backgroundColor: colors.goldHot },
+  ctaShell: { borderRadius: radius.pill, overflow: 'hidden', marginTop: 17 },
+  cta: { borderRadius: radius.pill, alignItems: 'center', padding: 16 },
   ctaText: { color: colors.ivoryText, fontSize: 15, fontWeight: '900' },
   ctaArrow: { fontSize: 23 },
   secondary: { alignItems: 'center', paddingVertical: 13 },

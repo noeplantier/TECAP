@@ -3,6 +3,8 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useQuery } from '@tanstack/react-query';
 import { fetchBackendEvents, fetchBackendProfiles, fetchBackendStatus } from '../lib/backend';
 import { demoPhotos, demoVenues } from '../lib/demo';
+import { demoPois, SAINT_BRIEUC_CENTER } from '../lib/mapData';
+import { MapCanvas } from '../components/MapCanvas';
 import { isBackendEnabled } from '../lib/runtime';
 import { useAppStore } from '../state/useAppStore';
 import { colors, glow, radius, spacing } from '../theme';
@@ -80,17 +82,21 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
         <Text style={styles.filter}>Concert 🎶</Text>
       </View>
       <View style={styles.mapCard}>
-        <Text style={styles.mapLabel}>CARTE DES SORTIES</Text>
-        <Text style={styles.mapIcon}>⌖</Text>
-        <View style={styles.mapPinOne}>
-          <Text style={styles.pinText}>L’Apsara · 12</Text>
+        <View style={styles.mapCardHeader}>
+          <View>
+            <Text style={styles.mapLabel}>TÉCAP MAP · SAINT-BRIEUC</Text>
+            <Text style={styles.mapTitle}>26 personnes ont partagé un plan</Text>
+          </View>
+          <Pressable onPress={() => navigation.navigate('Map')} style={styles.mapButton}>
+            <Text style={styles.mapButtonText}>Ouvrir ↗</Text>
+          </Pressable>
         </View>
-        <View style={styles.mapPinTwo}>
-          <Text style={styles.pinText}>Le Bodega · 8</Text>
-        </View>
-        <Pressable onPress={() => navigation.navigate('Map')} style={styles.mapButton}>
-          <Text style={styles.mapButtonText}>Ouvrir la carte ↗</Text>
-        </Pressable>
+        <MapCanvas
+          height={210}
+          initialRegion={{ ...SAINT_BRIEUC_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 }}
+          markers={demoPois}
+          onMarkerPress={() => navigation.navigate('Map')}
+        />
       </View>
       <View style={styles.sectionHead}>
         <Text style={styles.section}>Les lieux du soir</Text>
@@ -176,60 +182,36 @@ const styles = StyleSheet.create({
   },
   filterActive: { borderColor: colors.pink, color: colors.text },
   mapCard: {
-    height: 205,
     backgroundColor: colors.surfaceStrong,
-    borderColor: colors.line,
+    borderColor: colors.lineBright,
     borderWidth: 1,
     borderRadius: radius.lg,
     overflow: 'hidden',
     position: 'relative',
+    padding: 10,
+    ...glow.pink,
+  },
+  mapCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 4,
+    paddingBottom: 10,
   },
   mapLabel: {
-    color: colors.muted,
+    color: colors.pinkLight,
     fontSize: 9,
     letterSpacing: 1,
-    position: 'absolute',
-    top: 13,
-    left: 14,
+    fontWeight: '900',
   },
-  mapIcon: {
-    color: colors.pink,
-    fontSize: 72,
-    position: 'absolute',
-    alignSelf: 'center',
-    top: 56,
-    textShadowColor: colors.pink,
-    textShadowRadius: 18,
-  },
-  mapPinOne: {
-    position: 'absolute',
-    top: 48,
-    left: 22,
-    borderColor: colors.pink,
-    borderWidth: 1,
-    borderRadius: radius.pill,
-    padding: 7,
-  },
-  mapPinTwo: {
-    position: 'absolute',
-    right: 20,
-    top: 112,
-    borderColor: colors.gold,
-    borderWidth: 1,
-    borderRadius: radius.pill,
-    padding: 7,
-  },
-  pinText: { color: colors.text, fontSize: 9 },
+  mapTitle: { color: colors.text, fontSize: 11, fontWeight: '900', marginTop: 4 },
   mapButton: {
-    position: 'absolute',
-    right: 12,
-    bottom: 12,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.goldHot,
     borderRadius: radius.pill,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
-  mapButtonText: { color: colors.text, fontSize: 10, fontWeight: '700' },
+  mapButtonText: { color: colors.ivoryText, fontSize: 10, fontWeight: '900' },
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',

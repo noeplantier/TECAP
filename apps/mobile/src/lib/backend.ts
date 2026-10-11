@@ -1,6 +1,7 @@
 import type { Tables, TablesInsert } from '@tecap/supabase-types';
 import { demoProfiles, type DemoProfile } from './demo';
 import { supabase } from './supabase';
+import type { PoiCategory } from './mapData';
 
 export type BackendMatchSummary = {
   id: string;
@@ -22,6 +23,7 @@ export type BackendHotspot = {
   memberCount: number;
 };
 export type BackendNotification = Tables<'notifications'>;
+export type BackendPointOfInterest = Tables<'points_of_interest'>;
 
 type DiscoveryCandidate = {
   profile_id: string;
@@ -320,6 +322,19 @@ export async function fetchBackendHotspots(citySlug?: string): Promise<BackendHo
     activityType: hotspot.activity_type,
     memberCount: Number(hotspot.member_count),
   }));
+}
+
+export async function fetchBackendPointsOfInterest(
+  citySlug = 'saint-brieuc',
+  category?: PoiCategory,
+): Promise<BackendPointOfInterest[]> {
+  const { data, error } = await supabase.rpc('get_points_of_interest', {
+    p_city_slug: citySlug,
+    p_category: category,
+    p_limit: 100,
+  });
+  if (error) throw error;
+  return Array.isArray(data) ? (data as BackendPointOfInterest[]) : [];
 }
 
 export async function fetchBackendNotifications(): Promise<BackendNotification[]> {

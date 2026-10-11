@@ -87,7 +87,7 @@ Si elles sont absentes, l’export fonctionne en mode démo. Ne jamais ajouter `
 ## Backend Supabase
 
 1. Créer un projet Supabase.
-2. Exécuter les migrations `0001_init.sql`, `0002_social_mvp.sql`, `0003_backend_actions.sql`, `0004_realtime_geo_discovery.sql` et `0005_catch_notifications.sql` dans l’éditeur SQL ou avec la Supabase CLI.
+2. Exécuter les migrations `0001_init.sql`, `0002_social_mvp.sql`, `0003_backend_actions.sql`, `0004_realtime_geo_discovery.sql`, `0005_catch_notifications.sql` et `0006_points_of_interest.sql` dans l’éditeur SQL ou avec la Supabase CLI.
 3. Déployer les fonctions :
 
 ```bash
@@ -103,7 +103,7 @@ Le dépôt a été vérifié et déployé sur le projet Supabase TÉCAP de déve
 
 - référence : `bzijrulrqhnwycgmhcti` ;
 - région : `ca-central-1` ;
-- migrations appliquées : `init_p0`, `social_mvp`, `backend_actions`, `realtime_geo_discovery`, `catch_notifications` ;
+- migrations appliquées : `init_p0`, `social_mvp`, `backend_actions`, `realtime_geo_discovery`, `catch_notifications`, `points_of_interest` ;
 - tables publiques : RLS activée sur toutes les tables créées ;
 - Edge Functions actives : `validate-pass` et `expire-statuses`, toutes deux avec JWT obligatoire ;
 - types TypeScript du package `@tecap/supabase-types` synchronisés avec le schéma distant.
@@ -159,7 +159,20 @@ Le seed ne peut être exécuté qu’avec `SUPABASE_SERVICE_ROLE_KEY` dans un en
 - `user_location_private` ne contient une position que lorsque l’utilisateur l’autorise. La RLS limite toutes les opérations au propriétaire ; les RPC publiques ne retournent jamais ses coordonnées.
 - La carte affiche uniquement des hotspots publics agrégés avec un seuil d’au moins trois membres, filtrés par visibilité et blocages. Les marqueurs de démonstration représentent des lieux publics approximatifs, pas les positions de membres.
 - La permission Expo est foreground/When In Use, demandée depuis `Sorties > Carte` ou `Profil > Ma zone`, jamais au lancement. `Supprimer ma position` efface la ligne privée et réinitialise le consentement.
-- `react-native-maps` est utilisé sur iOS/Android dans un development build ; le web possède un fallback zoomable/déplaçable sans clé de carte externe. En mode `__DEV__`, `Simuler Saint-Brieuc` permet de tester le centrage sans GPS du simulateur.
+- `react-native-maps` est utilisé sur iOS/Android dans un development build ; le Web utilise Leaflet avec de vraies tuiles OpenStreetMap, zoom, déplacement, attribution et recadrage Saint-Brieuc, sans clé commerciale. Les tuiles sont filtrées en ambiance nocturne côté Web. En mode `__DEV__`, `Simuler Saint-Brieuc` permet de tester le centrage sans GPS du simulateur.
+
+### POI publics et carte TÉCAP
+
+La migration `0006_points_of_interest.sql` ajoute une table additive `points_of_interest` pour les lieux et événements publics :
+
+- `tecap_event` : TÉCAP Night et événements gold ;
+- `bar`, `restaurant`, `club`, `concert` : lieux de démonstration autour de Saint-Brieuc ;
+- `hotspot` : zones agrégées sans position individuelle ;
+- `user_plan` : extension prévue pour un plan explicitement rendu visible.
+
+La table est protégée par RLS : lecture uniquement des POI publiés pour les membres authentifiés, écriture réservée aux comptes staff/admin. Les coordonnées de démonstration sont approximatives et aucun membre n’est placé à sa position privée. Les index couvrent la ville, la catégorie, la publication et les dates d’événement. La table est ajoutée à Realtime lorsque la publication Supabase est disponible.
+
+Le mobile charge les POI via `get_points_of_interest` avec TanStack Query, écoute les changements `points_of_interest` et `evening_statuses` via Supabase Realtime, puis revient aux fixtures locales si le backend est désactivé ou si l’environnement n’a pas encore la table. Un tap sur un marker ouvre un bottom sheet premium avec catégorie, nombre de participants, horaires éventuels et CTA. Pour ajouter une ville, insérer une ligne ouverte dans `launch_areas`, puis ajouter ses POI avec le même `city_slug` : le composant ne code pas Saint-Brieuc comme seule ville.
 
 ### Notifications et Realtime
 
@@ -200,7 +213,7 @@ La branche mobile contient maintenant une expérience Boutique alignée sur les 
 - onglets `Découvrir`, `Sorties`, `Messages`, `Profil`, `Boutique` ;
 - offres `Invitation spéciale`, `TÉCAP Premium` et `Boost` avec sélection d’offre et CTA ;
 - parcours local en trois étapes `On se capte ce soir ?` → détail → match → conversation ;
-- écran Sorties avec intentions volontaires, carte illustrative, lieux et TÉCAP Night ;
+- écran Sorties avec intentions volontaires, vraie carte interactive OpenStreetMap, POI, bottom sheets et TÉCAP Night ;
 - état Zustand local pour l’abonnement, les crédits d’invitation et les boosts ;
 - adaptateur `apps/mobile/src/lib/commerce.ts` remplaçable par RevenueCat ou un flux Supabase Edge Function.
 

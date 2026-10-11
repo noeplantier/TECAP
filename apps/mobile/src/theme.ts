@@ -1,7 +1,9 @@
 export const background = {
   base: '#050308',
+  night: '#0A0710',
   elevated: '#0D0812',
   card: '#160C1B',
+  glass: 'rgba(18,16,25,0.86)',
   overlay: 'rgba(5,3,8,0.82)',
 } as const;
 
@@ -22,6 +24,7 @@ export const brand = {
   goldHot: '#FFD76A',
   goldLight: '#FFE7A3',
   goldWhite: '#FFF3C7',
+  goldDeep: '#A76010',
 } as const;
 
 export const status = {
@@ -49,6 +52,7 @@ export const colors = {
   goldHot: brand.goldHot,
   goldLight: brand.goldLight,
   goldWhite: brand.goldWhite,
+  goldDeep: brand.goldDeep,
   goldSoft: '#AD7420',
   ivory: brand.goldLight,
   ivoryText: '#261405',
@@ -87,4 +91,11 @@ export const glow = {
     shadowOffset: { width: 0, height: 0 },
     elevation: 14,
   },
+} as const;
+
+export const gradients = {
+  primaryCta: [brand.pinkLight, brand.pinkElectric, brand.magentaDeep],
+  premiumCta: [brand.goldLight, brand.goldHot, brand.goldDeep],
+  matchHalo: [brand.pinkElectric, brand.magentaDeep, background.base],
+  cardOverlay: ['rgba(5,3,8,0)', 'rgba(5,3,8,0.88)'],
 } as const;

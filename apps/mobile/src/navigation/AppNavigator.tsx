@@ -39,6 +39,7 @@ import {
 } from '../screens/CommunityScreens';
 import { useAppStore } from '../state/useAppStore';
 import { colors } from '../theme';
+import { NeonIcon } from '../components/NeonIcon';
 
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -51,7 +52,15 @@ const ShopStack = createNativeStackNavigator();
 type DiscoverParamList = {
   DiscoverHome: undefined;
   Home: undefined;
-  Match: undefined;
+  Match:
+    | {
+        profileId?: string;
+        profileName?: string;
+        profilePhoto?: string;
+        venue?: string;
+        status?: string;
+      }
+    | undefined;
   Invitation: undefined;
   ProfileDetail: { profileId?: string } | undefined;
 };
@@ -186,8 +195,8 @@ const tabItems: Record<string, TabDefinition> = {
   HomeTab: { label: 'Accueil', icon: 'home-outline', activeIcon: 'home', accent: 'gold' },
   DiscoverTab: {
     label: 'Découvrir',
-    icon: 'compass-outline',
-    activeIcon: 'compass',
+    icon: 'heart-outline',
+    activeIcon: 'heart',
     accent: 'pink',
   },
   OutingsTab: {
@@ -283,8 +292,10 @@ function TecapTabBar({ state, navigation }: { state: TabBarState; navigation: Ta
           const color = active
             ? item.accent === 'gold'
               ? colors.gold
-              : colors.pink
-            : colors.muted;
+              : colors.pinkLight
+            : item.accent === 'gold'
+              ? colors.goldLight
+              : colors.hotPink;
           return (
             <Pressable
               key={route.key}
@@ -298,7 +309,12 @@ function TecapTabBar({ state, navigation }: { state: TabBarState; navigation: Ta
                 pressed && styles.tabPressed,
               ]}
             >
-              <Ionicons name={active ? item.activeIcon : item.icon} size={22} color={color} />
+              <NeonIcon
+                name={active ? item.activeIcon : item.icon}
+                size={active ? 25 : 23}
+                color={color}
+                tone={item.accent ?? 'pink'}
+              />
               <Text style={[styles.tabLabel, { color }, active && styles.tabLabelActive]}>
                 {item.label}
               </Text>

@@ -1,14 +1,39 @@
+import { useEffect } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { scheduleEveningReminder } from '../lib/notifications';
-import { demoPhotos } from '../lib/demo';
+import { demoProfiles } from '../lib/demo';
 import { goToDiscover, goToOutings } from '../navigation/routes';
 import { colors, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
+import { NeonIcon, type NeonIconName } from '../components/NeonIcon';
 import { useAppStore } from '../state/useAppStore';
 
 type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
+const featuredProfile = demoProfiles.find((profile) => profile.id === 'lea') ?? demoProfiles[0]!;
+const secondProfile = demoProfiles.find((profile) => profile.id === 'lucas') ?? demoProfiles[1]!;
+
 export function HomeScreen({ navigation }: { navigation: Navigation }) {
   const city = useAppStore((state) => state.city);
+  const pulse = useSharedValue(1);
+  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withSequence(withTiming(1.12, { duration: 850 }), withTiming(1, { duration: 850 })),
+      -1,
+      true,
+    );
+    return () => cancelAnimation(pulse);
+  }, [pulse]);
+
   const enableReminder = async () => {
     const result = await scheduleEveningReminder();
     Alert.alert(
@@ -25,14 +50,19 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
       <View style={styles.top}>
         <View>
           <BrandLogo size='medium' />
-          <Text style={styles.location}>⌖ {city} · ce soir · 18+</Text>
+          <View style={styles.locationRow}>
+            <NeonIcon name='location-outline' size={14} tone='gold' />
+            <Text style={styles.location}>{city} · ce soir · 18+</Text>
+          </View>
         </View>
-        <Text style={styles.bell}>♧</Text>
+        <NeonIcon name='notifications-outline' size={24} tone='gold' />
       </View>
       <Text style={styles.title}>Tes où ?{`\n`}On se capte.</Text>
       <Text style={styles.tagline}>La rencontre commence quand la soirée commence.</Text>
       <Pressable style={styles.statusCta} onPress={() => goToOutings(navigation, 'EveningStatus')}>
-        <Text style={styles.moon}>☾</Text>
+        <Animated.View style={pulseStyle}>
+          <NeonIcon name='moon' size={24} tone='pink' style={styles.moon} />
+        </Animated.View>
         <View style={styles.statusCopy}>
           <Text style={styles.statusTitle}>T’as quoi de prévu ce soir ?</Text>
           <Text style={styles.statusSub}>Ton soir, tes envies. Partage ce que tu veux.</Text>
@@ -45,20 +75,40 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
         <Text style={styles.reminderArrow}>›</Text>
       </Pressable>
       <View style={styles.hubGrid}>
-        <HubButton title='Rencontre' icon='♡' onPress={() => goToDiscover(navigation)} />
-        <HubButton title='Sortie' icon='✦' onPress={() => goToOutings(navigation)} />
-        <HubButton title='Carte' icon='⌖' onPress={() => goToOutings(navigation, 'Map')} />
-        <HubButton title='Lieu' icon='⌖' onPress={() => goToOutings(navigation, 'VenueDetail')} />
+        <HubButton
+          title='Rencontre'
+          icon='heart-outline'
+          onPress={() => goToDiscover(navigation)}
+        />
+        <HubButton title='Sortie' icon='sparkles-outline' onPress={() => goToOutings(navigation)} />
+        <HubButton
+          title='Carte'
+          icon='map-outline'
+          onPress={() => goToOutings(navigation, 'Map')}
+        />
+        <HubButton
+          title='Lieu'
+          icon='location-outline'
+          onPress={() => goToOutings(navigation, 'VenueDetail')}
+        />
         <HubButton
           title='Statut'
-          icon='☾'
+          icon='moon-outline'
           onPress={() => goToOutings(navigation, 'EveningStatus')}
         />
-        <HubButton title='Amis' icon='♧' onPress={() => goToOutings(navigation, 'Friends')} />
-        <HubButton title='Crew' icon='✧' onPress={() => goToOutings(navigation, 'Crew')} />
+        <HubButton
+          title='Amis'
+          icon='people-outline'
+          onPress={() => goToOutings(navigation, 'Friends')}
+        />
+        <HubButton
+          title='Crew'
+          icon='people-circle-outline'
+          onPress={() => goToOutings(navigation, 'Crew')}
+        />
         <HubButton
           title='Mes likes'
-          icon='♛'
+          icon='heart-circle-outline'
           onPress={() => goToOutings(navigation, 'WhoLikedMe')}
           gold
         />
@@ -71,24 +121,32 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
       <View style={styles.sectionHead}>
         <Text style={styles.sectionTitle}>Qui sort ce soir ?</Text>
         <Pressable onPress={() => goToOutings(navigation, 'Map')}>
-          <Text style={styles.link}>Voir la carte ↗</Text>
+          <View style={styles.mapLink}>
+            <NeonIcon name='map-outline' size={13} tone='pink' />
+            <Text style={styles.link}>Voir la carte ↗</Text>
+          </View>
         </Pressable>
       </View>
       <Pressable style={styles.featureCard} onPress={() => goToDiscover(navigation)}>
-        <Image source={{ uri: demoPhotos.lea }} style={styles.featureImage} />
+        <Image source={{ uri: featuredProfile.photo }} style={styles.featureImage} />
         <View style={styles.featureShade} />
         <View style={styles.featureText}>
-          <Text style={styles.featureEyebrow}>✦ Sort ce soir — bar 🍸</Text>
-          <Text style={styles.featureName}>Léa, 24</Text>
+          <View style={styles.featureEyebrowRow}>
+            <NeonIcon name='location' size={13} tone='gold' />
+            <Text style={styles.featureEyebrow}>Sort ce soir — bar 🍸</Text>
+          </View>
+          <Text style={styles.featureName}>
+            {featuredProfile.name}, {featuredProfile.age}
+          </Text>
           <Text style={styles.featureMeta}>{city} · lieu partagé volontairement</Text>
         </View>
       </Pressable>
       <Pressable style={styles.rowCard} onPress={() => goToDiscover(navigation)}>
-        <View style={styles.smallAvatar}>
-          <Text style={styles.avatarLetter}>L</Text>
-        </View>
+        <Image source={{ uri: secondProfile.photo }} style={styles.smallAvatar} />
         <View style={styles.rowCopy}>
-          <Text style={styles.rowName}>Lucas, 25</Text>
+          <Text style={styles.rowName}>
+            {secondProfile.name}, {secondProfile.age}
+          </Text>
           <Text style={styles.rowMeta}>Sort ce soir — concert 🎶</Text>
         </View>
         <Text style={styles.chevron}>›</Text>
@@ -114,13 +172,19 @@ function HubButton({
   gold = false,
 }: {
   title: string;
-  icon: string;
+  icon: NeonIconName;
   onPress: () => void;
   gold?: boolean;
 }) {
   return (
     <Pressable onPress={onPress} style={[styles.hubButton, gold && styles.hubButtonGold]}>
-      <Text style={[styles.hubIcon, gold && styles.hubIconGold]}>{icon}</Text>
+      <NeonIcon
+        name={icon}
+        size={21}
+        tone={gold ? 'gold' : 'pink'}
+        color={gold ? colors.gold : colors.pinkLight}
+        style={styles.hubIcon}
+      />
       <Text style={styles.hubLabel}>{title}</Text>
     </Pressable>
   );
@@ -134,8 +198,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  location: { color: colors.muted, fontSize: 10, marginTop: 9 },
-  bell: { color: colors.mutedStrong, fontSize: 24 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 9 },
+  location: { color: colors.goldLight, fontSize: 10, fontWeight: '700' },
   title: {
     color: colors.text,
     fontSize: 27,
@@ -160,7 +224,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.hotPink,
   },
-  moon: { color: colors.hotPink, fontSize: 23, marginRight: 10 },
+  moon: { marginRight: 10 },
   statusCopy: { flex: 1 },
   statusTitle: { color: colors.text, fontSize: 13, fontWeight: '700' },
   statusSub: { color: colors.muted, fontSize: 10, marginTop: 5 },
@@ -192,8 +256,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   hubButtonGold: { borderColor: colors.goldSoft, backgroundColor: colors.goldWash },
-  hubIcon: { color: colors.pinkLight, fontSize: 18, fontWeight: '900' },
-  hubIconGold: { color: colors.gold },
+  hubIcon: { marginBottom: 1 },
   hubLabel: { color: colors.mutedStrong, fontSize: 9, fontWeight: '800' },
   filters: { flexDirection: 'row', gap: 8, marginVertical: 15 },
   filter: {
@@ -213,7 +276,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionTitle: { color: colors.text, fontSize: 14, fontWeight: '700' },
-  link: { color: colors.muted, fontSize: 10 },
+  mapLink: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  link: { color: colors.pinkLight, fontSize: 10, fontWeight: '800' },
   featureCard: {
     height: 185,
     borderRadius: radius.lg,
@@ -224,7 +288,8 @@ const styles = StyleSheet.create({
   featureImage: { width: '100%', height: '100%' },
   featureShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(14,15,26,.42)' },
   featureText: { position: 'absolute', left: 15, right: 15, bottom: 15 },
-  featureEyebrow: { color: colors.gold, fontSize: 10, marginBottom: 7, fontWeight: '800' },
+  featureEyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 7 },
+  featureEyebrow: { color: colors.goldLight, fontSize: 10, fontWeight: '900' },
   featureName: { color: colors.text, fontSize: 21, fontWeight: '800' },
   featureMeta: { color: colors.mutedStrong, fontSize: 10, marginTop: 4 },
   rowCard: {
@@ -239,11 +304,9 @@ const styles = StyleSheet.create({
     width: 37,
     height: 37,
     borderRadius: 19,
-    backgroundColor: colors.magenta,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.pinkLight,
   },
-  avatarLetter: { color: colors.text, fontWeight: '800' },
   rowCopy: { flex: 1, marginLeft: 11 },
   rowName: { color: colors.text, fontWeight: '700', fontSize: 13 },
   rowMeta: { color: colors.muted, fontSize: 10, marginTop: 4 },

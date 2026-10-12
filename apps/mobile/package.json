@@ -31,6 +31,7 @@
     "@types/leaflet": "^1.9.16",
     "expo": "~52.0.25",
     "expo-barcode-scanner": "~13.0.1",
+    "expo-font": "~13.0.4",
     "expo-haptics": "~14.0.0",
     "expo-image-picker": "~16.0.3",
     "expo-linear-gradient": "~14.0.2",

@@ -1,20 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  cancelAnimation,
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import type { DemoProfile } from '../lib/seedProfiles';
 import { demoProfiles } from '../lib/demo';
 import { fetchBackendProfiles, recordBackendSwipe } from '../lib/backend';
 import { isBackendEnabled } from '../lib/runtime';
-import { goToMessages, goToShop } from '../navigation/routes';
+import { goToShop } from '../navigation/routes';
 import { useAppStore } from '../state/useAppStore';
 import { colors, glow, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
+import { NeonIcon } from '../components/NeonIcon';
+import { rankDiscoveryProfiles } from '../lib/discoveryRanking';
 
 type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 const SWIPE_THRESHOLD = 110;
@@ -29,6 +35,8 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
   const likedProfileIds = useAppStore((state) => state.likedProfileIds);
   const passedProfileIds = useAppStore((state) => state.passedProfileIds);
   const blockedProfileIds = useAppStore((state) => state.blockedProfileIds);
+  const city = useAppStore((state) => state.city);
+  const outingActivity = useAppStore((state) => state.outingStatus?.activityType);
   const subscription = useAppStore((state) => state.subscription);
   const likesRemaining = useAppStore((state) => state.likesRemaining());
   const likeProfile = useAppStore((state) => state.likeProfile);
@@ -42,13 +50,16 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
 
   const visibleProfiles = useMemo(
     () =>
-      sourceProfiles.filter(
-        (profile) =>
-          !likedProfileIds.includes(profile.id) &&
-          !passedProfileIds.includes(profile.id) &&
-          !blockedProfileIds.includes(profile.id),
+      rankDiscoveryProfiles(
+        sourceProfiles.filter(
+          (profile) =>
+            !likedProfileIds.includes(profile.id) &&
+            !passedProfileIds.includes(profile.id) &&
+            !blockedProfileIds.includes(profile.id),
+        ),
+        { city, activityType: outingActivity },
       ),
-    [blockedProfileIds, likedProfileIds, passedProfileIds, sourceProfiles],
+    [blockedProfileIds, city, likedProfileIds, outingActivity, passedProfileIds, sourceProfiles],
   );
   const current = visibleProfiles[index];
 
@@ -74,98 +85,112 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
     ],
   }));
 
-  const resetSwipe = () => {
+  const resetSwipe = useCallback(() => {
     pendingProfileRef.current = null;
     setSwiping(false);
     translateX.value = withSpring(0, { damping: 18, stiffness: 180 });
-  };
+  }, [translateX]);
 
-  const finishSwipe = (direction: SwipeDirection) => {
-    const profile = pendingProfileRef.current;
-    if (!profile) {
-      resetSwipe();
-      return;
-    }
-    if (direction === 'pass') passProfile(profile.id);
-    else likeProfile(profile.id, false);
-    pendingProfileRef.current = null;
-    translateX.value = 0;
-    setSwiping(false);
-  };
-
-  const swipe = async (direction: SwipeDirection) => {
-    if (!current || swiping) return;
-    const profile = current;
-    pendingProfileRef.current = profile;
-    setSwiping(true);
-
-    if (isBackendEnabled) {
+  const finishSwipe = useCallback(
+    async (direction: SwipeDirection) => {
+      const profile = pendingProfileRef.current;
+      if (!profile) {
+        resetSwipe();
+        return;
+      }
+      const openMatch = () =>
+        navigation.navigate('Match', {
+          profileId: profile.id,
+          profileName: profile.name,
+          profilePhoto: profile.photo,
+          venue: profile.venue,
+          status: profile.status,
+        });
       try {
-        const result = await recordBackendSwipe(profile.id, direction);
-        if (!result.allowed) {
-          resetSwipe();
-          goToShop(navigation);
-          return;
-        }
-        if (result.matched) {
-          likeProfile(profile.id, false);
+        if (isBackendEnabled) {
+          const result = await recordBackendSwipe(profile.id, direction);
+          if (!result.allowed) {
+            resetSwipe();
+            goToShop(navigation);
+            return;
+          }
+          if (direction === 'pass') passProfile(profile.id);
+          else likeProfile(profile.id, false);
           pendingProfileRef.current = null;
           setSwiping(false);
-          goToMessages(navigation);
+          translateX.value = 0;
+          if (result.matched) openMatch();
           return;
         }
+
+        if (direction === 'pass') {
+          passProfile(profile.id);
+        } else {
+          const result = likeProfile(profile.id, profile.willMatchOnLike);
+          if (!result.allowed) {
+            resetSwipe();
+            goToShop(navigation);
+            return;
+          }
+          if (result.matched) {
+            pendingProfileRef.current = null;
+            setSwiping(false);
+            translateX.value = 0;
+            openMatch();
+            return;
+          }
+        }
+
+        pendingProfileRef.current = null;
+        setSwiping(false);
+        translateX.value = 0;
       } catch (error) {
         resetSwipe();
         Alert.alert(
           'Action indisponible',
           error instanceof Error ? error.message : 'Réessaie dans un instant.',
         );
-        return;
       }
-    } else if (direction === 'like') {
-      const result = likeProfile(profile.id, profile.willMatchOnLike);
-      if (!result.allowed) {
-        resetSwipe();
-        goToShop(navigation);
-        return;
-      }
-      if (result.matched) {
-        pendingProfileRef.current = null;
-        setSwiping(false);
-        translateX.value = 0;
-        navigation.navigate('Match');
-        return;
-      }
-    }
+    },
+    [likeProfile, navigation, passProfile, resetSwipe, translateX],
+  );
 
-    translateX.value = withSpring(
-      direction === 'like' ? 460 : -460,
-      { damping: 18, stiffness: 160 },
-      (finished) => {
-        if (finished) runOnJS(finishSwipe)(direction);
-      },
-    );
-  };
+  const swipe = useCallback(
+    (direction: SwipeDirection) => {
+      if (!current || swiping || pendingProfileRef.current) return;
+      pendingProfileRef.current = current;
+      setSwiping(true);
+      cancelAnimation(translateX);
+      translateX.value = withTiming(
+        direction === 'like' ? 520 : -520,
+        { duration: 230, easing: Easing.out(Easing.cubic) },
+        (finished) => {
+          if (finished) runOnJS(finishSwipe)(direction);
+        },
+      );
+    },
+    [current, finishSwipe, swiping, translateX],
+  );
 
-  const panResponder = useMemo(
+  const panGesture = useMemo(
     () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_event, gesture) =>
-          !swiping && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
-        onPanResponderMove: (_event, gesture) => {
-          translateX.value = gesture.dx;
-        },
-        onPanResponderRelease: (_event, gesture) => {
-          if (Math.abs(gesture.dx) >= SWIPE_THRESHOLD) {
-            void swipe(gesture.dx > 0 ? 'like' : 'pass');
+      Gesture.Pan()
+        .enabled(!swiping)
+        .activeOffsetX([-8, 8])
+        .failOffsetY([-14, 14])
+        .onUpdate((event) => {
+          translateX.value = event.translationX;
+        })
+        .onEnd((event) => {
+          if (Math.abs(event.translationX) >= SWIPE_THRESHOLD) {
+            runOnJS(swipe)(event.translationX > 0 ? 'like' : 'pass');
           } else {
-            translateX.value = withSpring(0, { damping: 18, stiffness: 180 });
+            translateX.value = withSpring(0, { damping: 20, stiffness: 210 });
           }
-        },
-        onPanResponderTerminate: () => {
-          translateX.value = withSpring(0, { damping: 18, stiffness: 180 });
-        },
-      }),
+        })
+        .onFinalize((_event, success) => {
+          if (!success) translateX.value = withSpring(0, { damping: 20, stiffness: 210 });
+        }),
     [swipe, swiping, translateX],
   );
 
@@ -173,13 +198,13 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.navigate('Home')} accessibilityRole='button'>
-          <Text style={styles.back}>×</Text>
+          <NeonIcon name='close' size={23} tone='gold' />
         </Pressable>
         <View style={styles.brandHeader}>
           <BrandLogo size='small' />
           <Text style={styles.eyebrow}>DÉCOUVRIR</Text>
         </View>
-        <Text style={styles.shield}>♢</Text>
+        <NeonIcon name='shield-checkmark-outline' size={21} tone='gold' />
       </View>
       <View style={styles.quotaRow}>
         <Text style={styles.quota}>
@@ -198,7 +223,7 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
         style={styles.specialInvite}
         accessibilityRole='button'
       >
-        <Text style={styles.specialIcon}>♡</Text>
+        <NeonIcon name='heart' size={23} tone='pink' style={styles.specialIcon} />
         <View style={styles.specialCopy}>
           <Text style={styles.specialTitle}>On se capte ce soir ?</Text>
           <Text style={styles.specialBody}>
@@ -212,39 +237,43 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
           <View style={styles.cardStage}>
             <View style={styles.cardBackTwo} />
             <View style={styles.cardBack} />
-            <Animated.View
-              {...panResponder.panHandlers}
-              style={[styles.card, glow.pink, cardStyle]}
-              accessibilityLabel={`Profil de ${current.name}, glisse à droite pour aimer ou à gauche pour passer`}
-            >
-              <Image source={{ uri: current.photo }} style={styles.photo} />
-              <View style={styles.photoShade} />
-              <Animated.View style={[styles.swipeLabel, styles.likeLabel, likeLabelStyle]}>
-                <Text style={styles.likeLabelText}>J’AIME</Text>
-              </Animated.View>
-              <Animated.View style={[styles.swipeLabel, styles.passLabel, passLabelStyle]}>
-                <Text style={styles.passLabelText}>PASSER</Text>
-              </Animated.View>
-              <View style={styles.cardTop}>
-                <Text style={styles.status}>● {current.status ?? 'Disponible ce soir'}</Text>
-              </View>
-              <View style={styles.copy}>
-                <Text style={styles.name}>
-                  {current.name}, {current.age}
-                </Text>
-                <Text style={styles.bio}>{current.bio} ✨</Text>
-                <Text style={styles.meta}>
-                  ⌖ {current.city} · {current.distance} · volontairement partagé
-                </Text>
-                <View style={styles.tags}>
-                  {current.tags.slice(0, 3).map((tag) => (
-                    <Text key={tag} style={styles.tag}>
-                      {tag}
-                    </Text>
-                  ))}
+            <GestureDetector gesture={panGesture}>
+              <Animated.View
+                style={[styles.card, glow.pink, cardStyle]}
+                accessibilityLabel={`Profil de ${current.name}, glisse à droite pour aimer ou à gauche pour passer`}
+              >
+                <Image source={{ uri: current.photo }} style={styles.photo} />
+                <View style={styles.photoShade} />
+                <Animated.View style={[styles.swipeLabel, styles.likeLabel, likeLabelStyle]}>
+                  <Text style={styles.likeLabelText}>J’AIME</Text>
+                </Animated.View>
+                <Animated.View style={[styles.swipeLabel, styles.passLabel, passLabelStyle]}>
+                  <Text style={styles.passLabelText}>PASSER</Text>
+                </Animated.View>
+                <View style={styles.cardTop}>
+                  <Text style={styles.status}>● {current.status ?? 'Disponible ce soir'}</Text>
                 </View>
-              </View>
-            </Animated.View>
+                <View style={styles.copy}>
+                  <Text style={styles.name}>
+                    {current.name}, {current.age}
+                  </Text>
+                  <Text style={styles.bio}>{current.bio} ✨</Text>
+                  <View style={styles.metaRow}>
+                    <NeonIcon name='location-outline' size={13} tone='gold' />
+                    <Text style={styles.meta}>
+                      {current.city} · {current.distance} · volontairement partagé
+                    </Text>
+                  </View>
+                  <View style={styles.tags}>
+                    {current.tags.slice(0, 3).map((tag) => (
+                      <Text key={tag} style={styles.tag}>
+                        {tag}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              </Animated.View>
+            </GestureDetector>
           </View>
           <Text style={styles.swipeHint}>Glisse à droite pour aimer · à gauche pour passer</Text>
           <Pressable
@@ -265,7 +294,7 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
               ]}
               accessibilityLabel='Passer à gauche'
             >
-              <Text style={styles.rejectText}>×</Text>
+              <NeonIcon name='close' size={27} tone='gold' />
             </Pressable>
             <Pressable
               disabled={swiping}
@@ -278,7 +307,7 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
               ]}
               accessibilityLabel='J’aime à droite'
             >
-              <Text style={styles.actionText}>♡</Text>
+              <NeonIcon name='heart' size={33} tone='pink' color={colors.text} />
             </Pressable>
             <Pressable
               disabled={swiping}
@@ -286,7 +315,7 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
               style={({ pressed }) => [styles.action, styles.star, pressed && styles.actionPressed]}
               accessibilityLabel='Super like'
             >
-              <Text style={styles.starText}>☆</Text>
+              <NeonIcon name='star' size={26} tone='gold' />
             </Pressable>
           </View>
         </>
@@ -437,7 +466,8 @@ const styles = StyleSheet.create({
     textShadowRadius: 10,
   },
   bio: { color: colors.text, fontSize: 13, marginTop: 7, lineHeight: 18 },
-  meta: { color: colors.mutedStrong, fontSize: 10, marginTop: 7 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 7 },
+  meta: { color: colors.mutedStrong, fontSize: 10 },
   tags: { flexDirection: 'row', gap: 6, marginTop: 14 },
   tag: {
     color: colors.text,

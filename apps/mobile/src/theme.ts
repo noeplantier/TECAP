@@ -14,17 +14,17 @@ export const text = {
 } as const;
 
 export const brand = {
-  pink: '#FF25B8',
-  hotPink: '#FF5AD1',
-  pinkElectric: '#FF0FAF',
-  pinkLight: '#FF9CE4',
-  magenta: '#E000AA',
+  pink: '#FF2FB8',
+  hotPink: '#FF78E2',
+  pinkElectric: '#FF00B8',
+  pinkLight: '#FFB9ED',
+  magenta: '#F000A8',
   magentaDeep: '#9D0879',
-  gold: '#FFC84D',
-  goldHot: '#FFD76A',
-  goldLight: '#FFE7A3',
-  goldWhite: '#FFF3C7',
-  goldDeep: '#A76010',
+  gold: '#FFD700',
+  goldHot: '#FFE15A',
+  goldLight: '#FFF0A6',
+  goldWhite: '#FFF7D6',
+  goldDeep: '#BC7C10',
 } as const;
 
 export const status = {
@@ -53,18 +53,18 @@ export const colors = {
   goldLight: brand.goldLight,
   goldWhite: brand.goldWhite,
   goldDeep: brand.goldDeep,
-  goldSoft: '#AD7420',
-  ivory: brand.goldLight,
-  ivoryText: '#261405',
+  goldSoft: '#C18A24',
+  ivory: brand.gold,
+  ivoryText: '#241400',
   green: status.success,
   danger: status.danger,
   line: '#572044',
   lineBright: brand.hotPink,
   overlay: background.overlay,
-  pinkWash: 'rgba(255,37,184,0.20)',
-  pinkGlow: 'rgba(255,37,184,0.34)',
-  goldWash: 'rgba(255,200,77,0.18)',
-  goldGlow: 'rgba(255,200,77,0.28)',
+  pinkWash: 'rgba(255,47,184,0.23)',
+  pinkGlow: 'rgba(255,0,184,0.48)',
+  goldWash: 'rgba(255,215,0,0.20)',
+  goldGlow: 'rgba(255,215,0,0.36)',
 } as const;
 
 export const spacing = { xs: 6, sm: 10, md: 14, lg: 20, xl: 28, xxl: 36 };

@@ -7,7 +7,9 @@ import { useAppStore } from '../state/useAppStore';
 import { colors, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
 
-export function AuthScreen() {
+export function AuthScreen({
+  navigation,
+}: { navigation?: { navigate: (screen: string) => void } } = {}) {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
@@ -134,6 +136,11 @@ export function AuthScreen() {
       <Text style={styles.note}>
         Tu choisis toujours ce que tu partages. Aucun GPS automatique.
       </Text>
+      <Pressable onPress={() => navigation?.navigate('RennesWaitlist')} style={styles.waitlistLink}>
+        <Text style={styles.waitlistText}>
+          Rennes n’est pas encore ouverte ? Rejoins la liste ↗
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -177,4 +184,6 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: colors.ivoryText, fontWeight: '800' },
   note: { color: colors.muted, textAlign: 'center', fontSize: 11, lineHeight: 17, marginTop: 22 },
+  waitlistLink: { alignItems: 'center', paddingVertical: 14 },
+  waitlistText: { color: colors.goldLight, fontSize: 10, fontWeight: '800' },
 });

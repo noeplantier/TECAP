@@ -256,7 +256,12 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
     setSelectedPoi(null);
     if (poi.action === 'event') navigation.navigate('Night');
     else if (poi.action === 'invite') navigation.navigate('Invitation');
-    else navigation.navigate('OutingsHome');
+    else
+      navigation.navigate('VenueDetail', {
+        venue: poi.name,
+        count: poi.participantCount,
+        kind: categoryLabels[poi.category],
+      });
   };
 
   return (

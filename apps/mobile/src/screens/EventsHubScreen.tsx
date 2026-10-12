@@ -1,4 +1,3 @@
-import { goToDiscover } from '../navigation/routes';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
@@ -83,6 +82,17 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
         <Text style={styles.filter}>Bar 🍸</Text>
         <Text style={styles.filter}>Concert 🎶</Text>
       </View>
+      <View style={styles.quickLinks}>
+        <Pressable onPress={() => navigation.navigate('Friends')} style={styles.quickLink}>
+          <Text style={styles.quickLinkText}>♧ Amis</Text>
+        </Pressable>
+        <Pressable onPress={() => navigation.navigate('Crew')} style={styles.quickLink}>
+          <Text style={styles.quickLinkText}>✧ Crew</Text>
+        </Pressable>
+        <Pressable onPress={() => navigation.navigate('WhoLikedMe')} style={styles.quickLinkGold}>
+          <Text style={styles.quickLinkTextGold}>♛ Likes</Text>
+        </Pressable>
+      </View>
       <View style={styles.mapCard}>
         <View style={styles.mapCardHeader}>
           <View>
@@ -111,7 +121,17 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
         </Pressable>
       </View>
       {venues.map((venue) => (
-        <Pressable key={venue.name} style={styles.venue} onPress={() => goToDiscover(navigation)}>
+        <Pressable
+          key={venue.name}
+          style={styles.venue}
+          onPress={() =>
+            navigation.navigate('VenueDetail', {
+              venue: venue.name,
+              count: venue.count,
+              kind: venue.type,
+            })
+          }
+        >
           <View style={styles.venueIcon}>
             <Text style={styles.venueIconText}>⌖</Text>
           </View>
@@ -177,6 +197,27 @@ const styles = StyleSheet.create({
   myStatusTitle: { color: colors.text, fontSize: 12, fontWeight: '900' },
   myStatusBody: { color: colors.mutedStrong, fontSize: 10, marginTop: 3 },
   filters: { flexDirection: 'row', gap: 8, marginVertical: 17 },
+  quickLinks: { flexDirection: 'row', gap: 7, marginBottom: 13 },
+  quickLink: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+  },
+  quickLinkGold: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.goldSoft,
+    backgroundColor: colors.goldWash,
+  },
+  quickLinkText: { color: colors.pinkLight, fontSize: 9, fontWeight: '900' },
+  quickLinkTextGold: { color: colors.goldLight, fontSize: 9, fontWeight: '900' },
   filter: {
     color: colors.mutedStrong,
     borderColor: colors.line,

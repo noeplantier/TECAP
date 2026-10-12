@@ -249,6 +249,11 @@ export type Database = {
         Args: { p_city_slug?: string; p_category?: string; p_limit?: number };
         Returns: Json;
       };
+      get_rennes_waitlist_status: { Args: Record<string, never>; Returns: Json };
+      join_rennes_waitlist: {
+        Args: { p_first_name: string; p_age: number; p_email: string; p_consent: boolean };
+        Returns: Json;
+      };
     };
     Enums: { user_role: UserRole; lead_status: LeadStatus; pass_state: PassState };
     CompositeTypes: Record<string, never>;

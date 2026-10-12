@@ -47,7 +47,7 @@ const productCopy = {
 
 export function ShopScreen({ navigation }: { navigation: Navigation }) {
   const [mode, setMode] = useState<Mode>('premium');
-  const [selected, setSelected] = useState<OfferId>('premium-3');
+  const [selected, setSelected] = useState<OfferId>('premium-12');
   const activatePremium = useAppStore((state) => state.activatePremium);
   const addBoosts = useAppStore((state) => state.addBoosts);
   const addInvitationCredits = useAppStore((state) => state.addInvitationCredits);
@@ -64,16 +64,9 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
   );
   const selectMode = (next: Mode) => {
     setMode(next);
-    setSelected(next === 'premium' ? 'premium-3' : next === 'boost' ? 'boost-5' : 'invite-5');
+    setSelected(next === 'premium' ? 'premium-12' : next === 'boost' ? 'boost-5' : 'invite-5');
   };
-  const buy = async () => {
-    if (isBackendEnabled) {
-      Alert.alert(
-        'Paiement sécurisé',
-        'Le paiement App Store / Google Play doit confirmer la transaction avant l’activation des droits. Aucun achat fictif ne sera écrit dans Supabase.',
-      );
-      return;
-    }
+  const activateDemoOffer = async () => {
     const result = await demoCommerce.purchase(selected);
     if (mode === 'premium') activatePremium(result.offerId);
     if (mode === 'boost') addBoosts(selected === 'boost-5' ? 5 : 1, result.offerId);
@@ -82,8 +75,22 @@ export function ShopScreen({ navigation }: { navigation: Navigation }) {
     else
       Alert.alert(
         'C’est activé',
-        'Mode démo : ton offre est disponible immédiatement. Le paiement réel sera branché avec Supabase/RevenueCat.',
+        'Mode démo : aucun paiement n’a été effectué et aucun achat fictif n’a été écrit dans Supabase.',
       );
+  };
+  const buy = async () => {
+    if (isBackendEnabled) {
+      Alert.alert(
+        'Mode démo · aucun paiement',
+        'Le paiement App Store / Google Play n’est pas configuré. Tu peux tester les avantages localement, sans débit ni écriture d’achat dans Supabase.',
+        [
+          { text: 'Pas maintenant', style: 'cancel' },
+          { text: 'Activer la démo', onPress: () => void activateDemoOffer() },
+        ],
+      );
+      return;
+    }
+    await activateDemoOffer();
   };
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -191,8 +198,8 @@ function PremiumComparison() {
       <View style={styles.comparisonColumns}>
         <View style={styles.comparisonColumn}>
           <Text style={styles.comparisonColumnTitle}>Gratuit</Text>
-          <Text style={styles.comparisonValue}>30</Text>
-          <Text style={styles.comparisonUnit}>LIKES / JOUR</Text>
+          <Text style={styles.comparisonValue}>25</Text>
+          <Text style={styles.comparisonUnit}>LIKES / 24 H</Text>
           <Text style={styles.comparisonMuted}>Swipe et match</Text>
           <Text style={styles.comparisonMuted}>Événements publics</Text>
         </View>
@@ -222,13 +229,6 @@ function OfferSelector({
     mode === 'premium'
       ? [
           { id: 'premium-1' as OfferId, name: '1 mois', price: '19,99 €', detail: '/ mois' },
-          {
-            id: 'premium-3' as OfferId,
-            name: '3 mois',
-            price: '49,99 €',
-            detail: 'soit 16,66 €/mois',
-            badge: '-17%',
-          },
           {
             id: 'premium-12' as OfferId,
             name: '12 mois',

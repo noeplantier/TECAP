@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Image,
+  TextInput,
+} from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BrandLogo } from '../components/BrandLogo';
 import { fetchBackendStatus, publishBackendStatus, removeBackendStatus } from '../lib/backend';
@@ -10,18 +19,30 @@ import { useAppStore } from '../state/useAppStore';
 import { colors, radius, spacing } from '../theme';
 
 type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
+type StatusRoute = { params?: { venue?: string } };
 const options = [
   'Rien de prévu',
   'Verre / bar',
   'Restaurant',
   'Concert',
   'Club',
+  'Match',
+  'Plage',
+  'Chill',
   'Événement TÉCAP',
   'Entre amis',
   'Selon les rencontres',
 ];
+const venueSuggestions = ['L’Apsara', 'Le Connétable', 'Le Liberté', 'Le MeM'];
+const durationOptions = [30, 60, 120, 240];
 
-export function EveningStatusScreen({ navigation }: { navigation: Navigation }) {
+export function EveningStatusScreen({
+  navigation,
+  route,
+}: {
+  navigation: Navigation;
+  route?: StatusRoute;
+}) {
   const city = useAppStore((state) => state.city);
   const outingStatus = useAppStore((state) => state.outingStatus);
   const publishOutingStatus = useAppStore((state) => state.publishOutingStatus);
@@ -33,29 +54,42 @@ export function EveningStatusScreen({ navigation }: { navigation: Navigation }) 
     enabled: isBackendEnabled,
   });
   const [selected, setSelected] = useState(outingStatus?.activityType ?? 'Verre / bar');
-  const [venue, setVenue] = useState(outingStatus?.venue ?? 'L’Apsara');
+  const [venue, setVenue] = useState(outingStatus?.venue ?? route?.params?.venue ?? '');
+  const [duration, setDuration] = useState(120);
+
+  useEffect(() => {
+    if (!isBackendEnabled && outingStatus && outingStatus.expiresAt <= Date.now())
+      removeOutingStatus();
+  }, [outingStatus, removeOutingStatus]);
 
   useEffect(() => {
     if (!remoteStatus.data) return;
-    setVenue(remoteStatus.data.venue ?? 'L’Apsara');
+    setVenue(remoteStatus.data.venue ?? '');
     setSelected(
       remoteStatus.data.status_type === 'bar' ? 'Verre / bar' : remoteStatus.data.status_type,
     );
   }, [remoteStatus.data]);
 
-  const hasStatus = isBackendEnabled ? Boolean(remoteStatus.data) : Boolean(outingStatus);
+  const hasStatus = isBackendEnabled
+    ? Boolean(remoteStatus.data && new Date(remoteStatus.data.expires_at).getTime() > Date.now())
+    : Boolean(outingStatus && outingStatus.expiresAt > Date.now());
   const publish = async () => {
     try {
       if (isBackendEnabled) {
-        await publishBackendStatus({ activityType: selected, city, venue });
+        await publishBackendStatus({
+          activityType: selected,
+          city,
+          venue: venue || undefined,
+          durationMinutes: duration,
+        });
         await queryClient.invalidateQueries({ queryKey: ['backend-evening-status'] });
       } else {
         publishOutingStatus({
           activityType: selected,
           city,
-          venue,
-          timeWindow: 'Ce soir · vers 21 h',
-          expiresAt: Date.now() + 8 * 60 * 60 * 1000,
+          venue: venue || undefined,
+          timeWindow: 'Ce soir',
+          expiresAt: Date.now() + duration * 60 * 1000,
         });
       }
     } catch (error) {
@@ -115,17 +149,53 @@ export function EveningStatusScreen({ navigation }: { navigation: Navigation }) 
           </Pressable>
         ))}
       </View>
-      <Pressable
-        onPress={() => setVenue(venue === 'L’Apsara' ? 'Le Tire-Bouchon' : 'L’Apsara')}
-        style={styles.venuePicker}
-      >
-        <Text style={styles.venueLabel}>Lieu choisi volontairement</Text>
-        <Text style={styles.venueValue}>⌖ {venue} · changer</Text>
-      </Pressable>
+      <View style={styles.venuePicker}>
+        <Text style={styles.venueLabel}>Lieu facultatif · partagé uniquement si tu le choisis</Text>
+        <TextInput
+          value={venue}
+          onChangeText={setVenue}
+          placeholder='Où es-tu ?'
+          placeholderTextColor={colors.muted}
+          style={styles.venueInput}
+          accessibilityLabel='Où es-tu ? lieu facultatif'
+        />
+        <View style={styles.suggestions}>
+          {venueSuggestions
+            .filter((item) => !venue || item.toLowerCase().includes(venue.toLowerCase()))
+            .map((item) => (
+              <Pressable
+                key={item}
+                onPress={() => setVenue(item)}
+                style={[styles.suggestion, venue === item && styles.suggestionActive]}
+              >
+                <Text
+                  style={[styles.suggestionText, venue === item && styles.suggestionTextActive]}
+                >
+                  ⌖ {item}
+                </Text>
+              </Pressable>
+            ))}
+        </View>
+      </View>
+      <Text style={styles.durationTitle}>Visible pendant</Text>
+      <View style={styles.durations}>
+        {durationOptions.map((minutes) => (
+          <Pressable
+            key={minutes}
+            onPress={() => setDuration(minutes)}
+            style={[styles.durationChip, duration === minutes && styles.durationChipActive]}
+          >
+            <Text style={[styles.durationText, duration === minutes && styles.durationTextActive]}>
+              {minutes < 60 ? `${minutes} min` : `${minutes / 60} h`}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
       <View style={styles.info}>
         <Text style={styles.infoRow}>
           ◷ <Text style={styles.infoStrong}>Expire cette nuit</Text>
-          {`\n`}Ton statut disparaîtra automatiquement à 02:00.
+          {`\n`}Ton statut disparaîtra automatiquement après{' '}
+          {duration < 60 ? `${duration} minutes` : `${duration / 60} heure(s)`}.
         </Text>
         <Text style={styles.infoRow}>
           ♧ <Text style={styles.infoStrong}>Tu gardes le contrôle</Text>
@@ -199,6 +269,32 @@ const styles = StyleSheet.create({
   },
   venueLabel: { color: colors.muted, fontSize: 9 },
   venueValue: { color: colors.text, fontSize: 12, fontWeight: '800', marginTop: 5 },
+  venueInput: { color: colors.text, fontSize: 13, paddingVertical: 8, marginTop: 4 },
+  suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  suggestion: {
+    borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  suggestionActive: { borderColor: colors.gold, backgroundColor: colors.goldWash },
+  suggestionText: { color: colors.mutedStrong, fontSize: 9 },
+  suggestionTextActive: { color: colors.goldLight, fontWeight: '800' },
+  durationTitle: { color: colors.text, fontSize: 12, fontWeight: '800', marginTop: 14 },
+  durations: { flexDirection: 'row', gap: 7, marginTop: 8 },
+  durationChip: {
+    flex: 1,
+    borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    paddingVertical: 8,
+    backgroundColor: colors.surface,
+  },
+  durationChipActive: { borderColor: colors.pink, backgroundColor: colors.pinkWash },
+  durationText: { color: colors.mutedStrong, fontSize: 9, fontWeight: '700' },
+  durationTextActive: { color: colors.pinkLight, fontWeight: '900' },
   info: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,

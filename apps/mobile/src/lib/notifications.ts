@@ -101,6 +101,36 @@ export async function triggerDemoNotification(scenario: 'match' | 'message' | 'c
   await presentLocalNotification(scenarios[scenario]);
 }
 
+export async function scheduleEveningReminder() {
+  if (Platform.OS === 'web') return { status: 'unavailable' as const };
+  await configureNotifications();
+  const current = await Notifications.getPermissionsAsync();
+  const permission =
+    current.status === 'granted' ? current : await Notifications.requestPermissionsAsync();
+  if (permission.status !== 'granted') return { status: 'denied' as const };
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const item of scheduled) {
+    if (item.content.data?.tecapReminder === 'evening') {
+      await Notifications.cancelScheduledNotificationAsync(item.identifier);
+    }
+  }
+  const identifier = await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '🌙 T’as quoi de prévu ce soir ?',
+      body: 'Partage ton plan en quelques secondes et vois qui sort près de toi.',
+      data: { route: 'EveningStatus', tecapReminder: 'evening' },
+      sound: false,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: 18,
+      minute: 0,
+      channelId: Platform.OS === 'android' ? 'tecap-default' : undefined,
+    },
+  });
+  return { status: 'scheduled' as const, identifier };
+}
+
 export async function subscribeToBackendNotifications(
   onInsert: (notification?: BackendNotification) => void,
 ) {

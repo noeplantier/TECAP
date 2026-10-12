@@ -30,6 +30,13 @@ import { IncomingRequestScreen } from '../screens/IncomingRequestScreen';
 import { ProfileDetailScreen } from '../screens/ProfileDetailScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { SafetyScreen } from '../screens/SafetyScreen';
+import {
+  FriendsScreen,
+  VenueDetailScreen,
+  CrewScreen,
+  WhoLikedMeScreen,
+  RennesWaitlistScreen,
+} from '../screens/CommunityScreens';
 import { useAppStore } from '../state/useAppStore';
 import { colors } from '../theme';
 
@@ -54,6 +61,10 @@ type OutingsParamList = {
   EveningStatus: undefined;
   Night: undefined;
   Pass: undefined;
+  Friends: undefined;
+  VenueDetail: { venue?: string; count?: number; kind?: string } | undefined;
+  Crew: undefined;
+  WhoLikedMe: undefined;
 };
 type MessagesParamList = {
   MessagesHome: undefined;
@@ -67,6 +78,7 @@ type ProfileParamList = {
 };
 type ShopParamList = { ShopHome: undefined };
 type MainTabParamList = {
+  HomeTab: undefined;
   DiscoverTab: NavigatorScreenParams<DiscoverParamList>;
   OutingsTab: NavigatorScreenParams<OutingsParamList>;
   MessagesTab: NavigatorScreenParams<MessagesParamList>;
@@ -75,6 +87,7 @@ type MainTabParamList = {
 };
 type RootParamList = {
   Auth: undefined;
+  RennesWaitlist: undefined;
   MainTabs: NavigatorScreenParams<MainTabParamList>;
 };
 const navigationRef = createNavigationContainerRef<RootParamList>();
@@ -83,6 +96,7 @@ const linking: LinkingOptions<RootParamList> = {
   config: {
     screens: {
       Auth: 'auth',
+      RennesWaitlist: 'rennes-waitlist',
       MainTabs: {
         path: '',
         screens: {
@@ -169,6 +183,7 @@ type TabDefinition = {
 };
 
 const tabItems: Record<string, TabDefinition> = {
+  HomeTab: { label: 'Accueil', icon: 'home-outline', activeIcon: 'home', accent: 'gold' },
   DiscoverTab: {
     label: 'Découvrir',
     icon: 'compass-outline',
@@ -216,6 +231,10 @@ function OutingsStackScreen() {
       <OutingsStack.Screen name='EveningStatus' component={EveningStatusScreen} />
       <OutingsStack.Screen name='Night' component={NightScreen} />
       <OutingsStack.Screen name='Pass' component={PassScreen} />
+      <OutingsStack.Screen name='Friends' component={FriendsScreen} />
+      <OutingsStack.Screen name='VenueDetail' component={VenueDetailScreen} />
+      <OutingsStack.Screen name='Crew' component={CrewScreen} />
+      <OutingsStack.Screen name='WhoLikedMe' component={WhoLikedMeScreen} />
     </OutingsStack.Navigator>
   );
 }
@@ -252,30 +271,40 @@ function TecapTabBar({ state, navigation }: { state: TabBarState; navigation: Ta
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-      {state.routes.map((route, index) => {
-        const active = state.index === index;
-        const item = tabItems[route.name] ?? tabItems.DiscoverTab!;
-        const color = active ? (item.accent === 'gold' ? colors.gold : colors.pink) : colors.muted;
-        return (
-          <Pressable
-            key={route.key}
-            onPress={() => navigation.navigate(route.name)}
-            accessibilityRole='tab'
-            accessibilityState={{ selected: active }}
-            accessibilityLabel={item.label}
-            style={({ pressed }) => [
-              styles.tab,
-              active && (item.accent === 'gold' ? styles.tabActiveGold : styles.tabActive),
-              pressed && styles.tabPressed,
-            ]}
-          >
-            <Ionicons name={active ? item.activeIcon : item.icon} size={22} color={color} />
-            <Text style={[styles.tabLabel, { color }, active && styles.tabLabelActive]}>
-              {item.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+      {state.routes
+        .filter((route) => route.name !== 'OutingsTab' && route.name !== 'ShopTab')
+        .map((route) => {
+          const focusedRoute = state.routes[state.index]?.name;
+          const active =
+            focusedRoute === route.name ||
+            (focusedRoute === 'OutingsTab' && route.name === 'HomeTab') ||
+            (focusedRoute === 'ShopTab' && route.name === 'ProfileTab');
+          const item = tabItems[route.name] ?? tabItems.DiscoverTab!;
+          const color = active
+            ? item.accent === 'gold'
+              ? colors.gold
+              : colors.pink
+            : colors.muted;
+          return (
+            <Pressable
+              key={route.key}
+              onPress={() => navigation.navigate(route.name)}
+              accessibilityRole='tab'
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={item.label}
+              style={({ pressed }) => [
+                styles.tab,
+                active && (item.accent === 'gold' ? styles.tabActiveGold : styles.tabActive),
+                pressed && styles.tabPressed,
+              ]}
+            >
+              <Ionicons name={active ? item.activeIcon : item.icon} size={22} color={color} />
+              <Text style={[styles.tabLabel, { color }, active && styles.tabLabelActive]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
     </View>
   );
 }
@@ -283,10 +312,11 @@ function TecapTabBar({ state, navigation }: { state: TabBarState; navigation: Ta
 function MainTabs() {
   return (
     <Tab.Navigator
-      initialRouteName='DiscoverTab'
+      initialRouteName='HomeTab'
       tabBar={(props) => <TecapTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
+      <Tab.Screen name='HomeTab' component={HomeScreen} />
       <Tab.Screen name='DiscoverTab' component={DiscoverStackScreen} />
       <Tab.Screen name='OutingsTab' component={OutingsStackScreen} />
       <Tab.Screen name='MessagesTab' component={MessagesStackScreen} />
@@ -329,6 +359,7 @@ export function AppNavigator() {
         ) : (
           <RootStack.Screen name='MainTabs' component={MainTabs} />
         )}
+        <RootStack.Screen name='RennesWaitlist' component={RennesWaitlistScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
   );

@@ -26,18 +26,18 @@ Le correctif livré :
 
 Mesure réalisée sur l’export Expo Web local, route `/outings/map`, navigateur sandbox :
 
-| Indicateur | Avant correction | Après correction |
-|---|---:|---:|
-| Instances `.leaflet-container` | 2 | 1 |
-| Markers DOM | 14 | 7 |
-| Tuiles OSM observées | doublées lors de la double carte | 7 |
-| `DOMContentLoaded` | — | 592 ms |
-| `loadEventEnd` | — | 598 ms |
-| Bundle JS transféré | — | 2,807,824 octets |
-| Bundle JS brut | 2.68 MiB | environ 2.68 MiB |
-| Bundle JS gzip | — | 732,242 octets |
-| Durée moyenne tuile OSM | — | 25 ms |
-| Durée maximale tuile OSM | — | 46 ms |
+| Indicateur                     |                 Avant correction | Après correction |
+| ------------------------------ | -------------------------------: | ---------------: |
+| Instances `.leaflet-container` |                                2 |                1 |
+| Markers DOM                    |                               14 |                7 |
+| Tuiles OSM observées           | doublées lors de la double carte |                7 |
+| `DOMContentLoaded`             |                                — |           592 ms |
+| `loadEventEnd`                 |                                — |           598 ms |
+| Bundle JS transféré            |                                — | 2,807,824 octets |
+| Bundle JS brut                 |                         2.68 MiB | environ 2.68 MiB |
+| Bundle JS gzip                 |                                — |   732,242 octets |
+| Durée moyenne tuile OSM        |                                — |            25 ms |
+| Durée maximale tuile OSM       |                                — |            46 ms |
 
 La durée des tuiles est celle observée dans ce test ; OpenStreetMap public ne constitue pas un SLA. La latence réelle dépendra de la région, de la connectivité et d’un éventuel fournisseur de tuiles en production.
 
@@ -89,10 +89,10 @@ Les markers natifs désactivent `tracksViewChanges` après leur création afin d
 
 ### État de données au moment de l’audit
 
-| Table | Volume |
-|---|---:|
-| `points_of_interest` | 7 |
-| `evening_statuses` | 0 |
+| Table                | Volume |
+| -------------------- | -----: |
+| `points_of_interest` |      7 |
+| `evening_statuses`   |      0 |
 
 Le volume est encore trop faible pour simuler une charge production. L’absence de statut explique aussi pourquoi un benchmark hotspots réel n’est pas représentatif.
 

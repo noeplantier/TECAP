@@ -24,6 +24,38 @@ export type BackendHotspot = {
 };
 export type BackendNotification = Tables<'notifications'>;
 export type BackendPointOfInterest = Tables<'points_of_interest'>;
+export type RennesWaitlistStatus = { count: number; threshold: number; cityOpen: boolean };
+
+function parseRennesWaitlistStatus(value: unknown): RennesWaitlistStatus {
+  if (typeof value !== 'object' || value === null) throw new Error('Réponse waitlist invalide.');
+  const result = value as Record<string, unknown>;
+  return {
+    count: Number(result.count ?? 0),
+    threshold: Number(result.threshold ?? 500),
+    cityOpen: result.cityOpen === true,
+  };
+}
+
+export async function fetchRennesWaitlistStatus(): Promise<RennesWaitlistStatus> {
+  const { data, error } = await supabase.rpc('get_rennes_waitlist_status');
+  if (error) throw error;
+  return parseRennesWaitlistStatus(data);
+}
+
+export async function joinRennesWaitlist(input: {
+  firstName: string;
+  age: number;
+  email: string;
+}): Promise<RennesWaitlistStatus> {
+  const { data, error } = await supabase.rpc('join_rennes_waitlist', {
+    p_first_name: input.firstName,
+    p_age: input.age,
+    p_email: input.email,
+    p_consent: true,
+  });
+  if (error) throw error;
+  return parseRennesWaitlistStatus(data);
+}
 
 type DiscoveryCandidate = {
   profile_id: string;
@@ -271,7 +303,9 @@ function statusTypeFor(activityType: string): TablesInsert<'evening_statuses'>['
   if (activityType.includes('Restaurant')) return 'restaurant';
   if (activityType.includes('Concert')) return 'concert';
   if (activityType.includes('Club')) return 'club';
-  if (activityType.includes('amis')) return 'chill';
+  if (activityType.includes('Match')) return 'match';
+  if (activityType.includes('Plage')) return 'beach';
+  if (activityType.includes('Chill') || activityType.includes('amis')) return 'chill';
   return 'other';
 }
 
@@ -469,6 +503,7 @@ export async function publishBackendStatus(input: {
   activityType: string;
   city: string;
   venue?: string;
+  durationMinutes?: number;
 }) {
   const userId = await currentUserId();
   const row: TablesInsert<'evening_statuses'> = {
@@ -476,7 +511,7 @@ export async function publishBackendStatus(input: {
     city: input.city,
     status_type: statusTypeFor(input.activityType),
     venue: input.venue ?? null,
-    expires_at: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+    expires_at: new Date(Date.now() + (input.durationMinutes ?? 120) * 60 * 1000).toISOString(),
   };
   const { error } = await supabase.from('evening_statuses').upsert(row, { onConflict: 'user_id' });
   if (error) throw error;

@@ -68,6 +68,21 @@ const LIKE_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const FREE_LIKE_LIMIT = 25;
 
 const now = () => Date.now();
+let outingExpiryTimer: ReturnType<typeof setTimeout> | undefined;
+
+function scheduleOutingCleanup(expiresAt: number) {
+  if (outingExpiryTimer) clearTimeout(outingExpiryTimer);
+  const delay = expiresAt - now();
+  if (delay <= 0) {
+    const current = useAppStore.getState().outingStatus;
+    if (current?.expiresAt === expiresAt) useAppStore.getState().removeOutingStatus();
+    return;
+  }
+  outingExpiryTimer = setTimeout(() => {
+    const current = useAppStore.getState().outingStatus;
+    if (current?.expiresAt === expiresAt) useAppStore.getState().removeOutingStatus();
+  }, delay);
+}
 
 function activeTimestamps(timestamps: number[], timestamp = now()) {
   return timestamps.filter((value) => timestamp - value < LIKE_WINDOW_MS);
@@ -304,8 +319,14 @@ export const useAppStore = create<AppState>()(
             ],
           };
         }),
-      publishOutingStatus: (outingStatus) => set({ outingStatus }),
-      removeOutingStatus: () => set({ outingStatus: undefined }),
+      publishOutingStatus: (outingStatus) => {
+        set({ outingStatus });
+        scheduleOutingCleanup(outingStatus.expiresAt);
+      },
+      removeOutingStatus: () => {
+        if (outingExpiryTimer) clearTimeout(outingExpiryTimer);
+        set({ outingStatus: undefined });
+      },
       setLocationConsent: (locationConsent) => set({ locationConsent }),
       setMapVisible: (mapVisible) => set({ mapVisible }),
       setApproximateLocation: (approximateLocation) => set({ approximateLocation }),
@@ -327,6 +348,13 @@ export const useAppStore = create<AppState>()(
         })),
       resetDemo: () => set(initialState),
     }),
-    { name: 'tecap-demo-state-v2', storage: createJSONStorage(() => AsyncStorage) },
+    {
+      name: 'tecap-demo-state-v2',
+      storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        const expiresAt = state?.outingStatus?.expiresAt;
+        if (expiresAt !== undefined) scheduleOutingCleanup(expiresAt);
+      },
+    },
   ),
 );

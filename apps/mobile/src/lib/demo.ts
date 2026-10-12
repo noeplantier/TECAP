@@ -45,8 +45,8 @@ export const premiumFeatures = [
   },
   {
     icon: '◉',
-    title: 'Voir qui sort ce soir',
-    body: 'Repère les membres actifs et les établissements partagés.',
+    title: 'Voir qui t’a liké',
+    body: 'Découvre tes likes et retrouve-les dans tes suggestions.',
   },
   {
     icon: '⌖',
@@ -57,6 +57,11 @@ export const premiumFeatures = [
     icon: '♢',
     title: 'Passe en premier',
     body: 'Ton profil remonte dans les suggestions pertinentes.',
+  },
+  {
+    icon: '◌',
+    title: 'Mode incognito',
+    body: 'Découvre en privé et choisis quand ton profil devient visible.',
   },
 ];
 

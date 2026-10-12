@@ -1,5 +1,4 @@
 import 'react-native-gesture-handler';
-import { Ionicons } from '@expo/vector-icons';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
@@ -11,7 +10,10 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { colors } from './src/theme';
 
 export default function App() {
-  const [iconsLoaded, iconError] = useFonts(Ionicons.font);
+  const [iconsLoaded, iconError] = useFonts({
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Metro must emit a publishable font asset.
+    Ionicons: require('./assets/Ionicons.ttf'),
+  });
 
   if (!iconsLoaded && !iconError) {
     return (

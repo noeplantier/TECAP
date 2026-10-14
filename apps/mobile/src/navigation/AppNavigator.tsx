@@ -10,6 +10,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthScreen } from '../screens/AuthScreen';
@@ -40,6 +41,9 @@ import {
 import { useAppStore } from '../state/useAppStore';
 import { colors } from '../theme';
 import { NeonIcon } from '../components/NeonIcon';
+import { isBackendEnabled } from '../lib/runtime';
+import { supabase } from '../lib/supabase';
+import { TECAP_TAB_ORDER } from './tabConfig';
 
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -87,7 +91,6 @@ type ProfileParamList = {
 };
 type ShopParamList = { ShopHome: undefined };
 type MainTabParamList = {
-  HomeTab: undefined;
   DiscoverTab: NavigatorScreenParams<DiscoverParamList>;
   OutingsTab: NavigatorScreenParams<OutingsParamList>;
   MessagesTab: NavigatorScreenParams<MessagesParamList>;
@@ -192,7 +195,6 @@ type TabDefinition = {
 };
 
 const tabItems: Record<string, TabDefinition> = {
-  HomeTab: { label: 'Accueil', icon: 'home-outline', activeIcon: 'home', accent: 'gold' },
   DiscoverTab: {
     label: 'Découvrir',
     icon: 'heart-outline',
@@ -276,51 +278,106 @@ function ShopStackScreen() {
   );
 }
 
+const tabScreens = {
+  DiscoverTab: DiscoverStackScreen,
+  OutingsTab: OutingsStackScreen,
+  MessagesTab: MessagesStackScreen,
+  ProfileTab: ProfileStackScreen,
+  ShopTab: ShopStackScreen,
+};
+
 function TecapTabBar({ state, navigation }: { state: TabBarState; navigation: TabBarNavigation }) {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const localUnreadMessages = useAppStore(
+    (appState) =>
+      appState.messages.filter((message) => !message.read && message.sender === 'them').length,
+  );
+  const remoteUnreadCount = useQuery({
+    queryKey: ['backend-unread-notifications'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .is('read_at', null)
+        .in('type', ['message', 'match']);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: isBackendEnabled,
+    staleTime: 15_000,
+  });
+  useEffect(() => {
+    if (!isBackendEnabled) return;
+    let mounted = true;
+    let channel: ReturnType<typeof supabase.channel> | undefined;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!mounted || !data.user) return;
+      channel = supabase
+        .channel(`tecap-tab-notifications-${data.user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${data.user.id}`,
+          },
+          () => void queryClient.invalidateQueries({ queryKey: ['backend-unread-notifications'] }),
+        )
+        .subscribe();
+    });
+    return () => {
+      mounted = false;
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+  const unreadMessages = isBackendEnabled ? (remoteUnreadCount.data ?? 0) : localUnreadMessages;
   return (
     <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-      {state.routes
-        .filter((route) => route.name !== 'OutingsTab' && route.name !== 'ShopTab')
-        .map((route) => {
-          const focusedRoute = state.routes[state.index]?.name;
-          const active =
-            focusedRoute === route.name ||
-            (focusedRoute === 'OutingsTab' && route.name === 'HomeTab') ||
-            (focusedRoute === 'ShopTab' && route.name === 'ProfileTab');
-          const item = tabItems[route.name] ?? tabItems.DiscoverTab!;
-          const color = active
-            ? item.accent === 'gold'
-              ? colors.gold
-              : colors.pinkLight
-            : item.accent === 'gold'
-              ? colors.goldLight
-              : colors.hotPink;
-          return (
-            <Pressable
-              key={route.key}
-              onPress={() => navigation.navigate(route.name)}
-              accessibilityRole='tab'
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={item.label}
-              style={({ pressed }) => [
-                styles.tab,
-                active && (item.accent === 'gold' ? styles.tabActiveGold : styles.tabActive),
-                pressed && styles.tabPressed,
-              ]}
-            >
+      {state.routes.map((route) => {
+        const focusedRoute = state.routes[state.index]?.name;
+        const active = focusedRoute === route.name;
+        const item = tabItems[route.name] ?? tabItems.DiscoverTab!;
+        const color = active
+          ? item.accent === 'gold'
+            ? colors.gold
+            : colors.pink
+          : 'rgba(255,255,255,0.62)';
+        return (
+          <Pressable
+            key={route.key}
+            onPress={() => navigation.navigate(route.name)}
+            accessibilityRole='tab'
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={item.label}
+            style={({ pressed }) => [
+              styles.tab,
+              active && (item.accent === 'gold' ? styles.tabActiveGold : styles.tabActive),
+              pressed && styles.tabPressed,
+            ]}
+          >
+            <View style={styles.iconWrap}>
               <NeonIcon
                 name={active ? item.activeIcon : item.icon}
-                size={active ? 25 : 23}
+                size={active ? 22 : 20}
                 color={color}
-                tone={item.accent ?? 'pink'}
+                tone={active ? (item.accent ?? 'pink') : 'none'}
               />
-              <Text style={[styles.tabLabel, { color }, active && styles.tabLabelActive]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+              {route.name === 'MessagesTab' && unreadMessages > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadText}>
+                    {unreadMessages > 9 ? '9+' : unreadMessages}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.tabLabel, { color }, active && styles.tabLabelActive]}>
+              {item.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -328,16 +385,13 @@ function TecapTabBar({ state, navigation }: { state: TabBarState; navigation: Ta
 function MainTabs() {
   return (
     <Tab.Navigator
-      initialRouteName='HomeTab'
+      initialRouteName='DiscoverTab'
       tabBar={(props) => <TecapTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name='HomeTab' component={HomeScreen} />
-      <Tab.Screen name='DiscoverTab' component={DiscoverStackScreen} />
-      <Tab.Screen name='OutingsTab' component={OutingsStackScreen} />
-      <Tab.Screen name='MessagesTab' component={MessagesStackScreen} />
-      <Tab.Screen name='ProfileTab' component={ProfileStackScreen} />
-      <Tab.Screen name='ShopTab' component={ShopStackScreen} />
+      {TECAP_TAB_ORDER.map(({ name }) => (
+        <Tab.Screen key={name} name={name} component={tabScreens[name]} />
+      ))}
     </Tab.Navigator>
   );
 }
@@ -384,7 +438,7 @@ export function AppNavigator() {
 const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#030207',
+    backgroundColor: '#050505',
     borderTopWidth: 1,
     borderTopColor: colors.lineBright,
     minHeight: 72,
@@ -398,7 +452,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
     borderRadius: 16,
-    marginHorizontal: 2,
+    marginHorizontal: 1,
   },
   tabActive: {
     borderColor: colors.hotPink,
@@ -421,6 +475,20 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   tabPressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
-  tabLabel: { fontSize: 10 },
+  iconWrap: { minHeight: 23, minWidth: 24, alignItems: 'center', justifyContent: 'center' },
+  unreadBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -9,
+    minWidth: 15,
+    height: 15,
+    borderRadius: 8,
+    backgroundColor: colors.pink,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  unreadText: { color: '#FFFFFF', fontSize: 8, fontWeight: '900' },
+  tabLabel: { fontSize: 9, includeFontPadding: false },
   tabLabelActive: { fontWeight: '800' },
 });

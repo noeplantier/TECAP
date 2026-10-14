@@ -4,9 +4,29 @@ import { FREE_LIKE_LIMIT, useAppStore } from '../src/state/useAppStore';
 import { simulatedSaintBrieucLocation } from '../src/lib/geolocation';
 import { demoPortraitsByGender } from '../src/lib/seedProfiles';
 import { rankDiscoveryProfiles } from '../src/lib/discoveryRanking';
+import { TECAP_TAB_ORDER } from '../src/navigation/tabConfig';
+import { brand, colors } from '../src/theme';
 
 describe('TECAP local MVP', () => {
   beforeEach(() => useAppStore.getState().resetDemo());
+
+  it('exposes exactly the five requested tabs in their required order', () => {
+    expect(TECAP_TAB_ORDER).toEqual([
+      { name: 'DiscoverTab', label: 'Découvrir' },
+      { name: 'OutingsTab', label: 'Sorties' },
+      { name: 'MessagesTab', label: 'Messages' },
+      { name: 'ProfileTab', label: 'Profil' },
+      { name: 'ShopTab', label: 'Boutique' },
+    ]);
+    expect(TECAP_TAB_ORDER).toHaveLength(5);
+  });
+
+  it('uses the exact TÉCAP pink and gold brand colors', () => {
+    expect(brand.pink).toBe('#F81795');
+    expect(brand.gold).toBe('#FFD700');
+    expect(colors.pink).toBe(brand.pink);
+    expect(colors.gold).toBe(brand.gold);
+  });
 
   it('contains 30 adult demo profiles with match scenarios', () => {
     expect(demoProfiles).toHaveLength(30);

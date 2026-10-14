@@ -1,30 +1,31 @@
 export const background = {
-  base: '#050308',
-  night: '#0A0710',
-  elevated: '#0D0812',
-  card: '#160C1B',
-  glass: 'rgba(18,16,25,0.86)',
-  overlay: 'rgba(5,3,8,0.82)',
+  base: '#050505',
+  night: '#090909',
+  elevated: '#111111',
+  card: '#171717',
+  glass: 'rgba(17,17,17,0.90)',
+  overlay: 'rgba(0,0,0,0.82)',
 } as const;
 
 export const text = {
-  primary: '#FFF9FE',
-  secondary: '#F5EAF4',
-  muted: '#B7A9B7',
+  primary: '#FFFFFF',
+  secondary: 'rgba(255,255,255,0.82)',
+  muted: 'rgba(255,255,255,0.58)',
 } as const;
 
+/** TÉCAP chromatic identity: one exact pink and one exact gold. */
 export const brand = {
-  pink: '#FF2FB8',
-  hotPink: '#FF78E2',
-  pinkElectric: '#FF00B8',
-  pinkLight: '#FFB9ED',
-  magenta: '#F000A8',
-  magentaDeep: '#9D0879',
+  pink: '#F81795',
+  hotPink: '#F81795',
+  pinkElectric: '#F81795',
+  pinkLight: '#F81795',
+  magenta: '#F81795',
+  magentaDeep: '#F81795',
   gold: '#FFD700',
-  goldHot: '#FFE15A',
-  goldLight: '#FFF0A6',
-  goldWhite: '#FFF7D6',
-  goldDeep: '#BC7C10',
+  goldHot: '#FFD700',
+  goldLight: '#FFD700',
+  goldWhite: '#FFD700',
+  goldDeep: '#FFD700',
 } as const;
 
 export const status = {
@@ -32,38 +33,38 @@ export const status = {
   danger: '#FF547F',
 } as const;
 
-/** Legacy aliases keep existing screens source-compatible while using the central tokens above. */
+/** Legacy aliases keep existing screens source-compatible using only brand tokens and neutral tints. */
 export const colors = {
   canvas: background.base,
   surface: background.elevated,
   surfaceStrong: background.card,
-  surfaceSoft: '#35102C',
+  surfaceSoft: '#202020',
   text: text.primary,
   muted: text.muted,
   mutedStrong: text.secondary,
   pink: brand.pink,
-  pinkSoft: '#D91B91',
-  pinkElectric: brand.pinkElectric,
-  pinkLight: brand.pinkLight,
-  magenta: brand.magenta,
-  magentaDeep: brand.magentaDeep,
-  hotPink: brand.hotPink,
+  pinkSoft: 'rgba(248,23,149,0.55)',
+  pinkElectric: brand.pink,
+  pinkLight: brand.pink,
+  magenta: brand.pink,
+  magentaDeep: brand.pink,
+  hotPink: brand.pink,
   gold: brand.gold,
-  goldHot: brand.goldHot,
-  goldLight: brand.goldLight,
-  goldWhite: brand.goldWhite,
-  goldDeep: brand.goldDeep,
-  goldSoft: '#C18A24',
-  ivory: brand.gold,
-  ivoryText: '#241400',
+  goldHot: brand.gold,
+  goldLight: brand.gold,
+  goldWhite: brand.gold,
+  goldDeep: brand.gold,
+  goldSoft: 'rgba(255,215,0,0.55)',
+  ivory: '#FFFFFF',
+  ivoryText: '#050505',
   green: status.success,
   danger: status.danger,
-  line: '#572044',
-  lineBright: brand.hotPink,
+  line: 'rgba(255,255,255,0.16)',
+  lineBright: 'rgba(248,23,149,0.72)',
   overlay: background.overlay,
-  pinkWash: 'rgba(255,47,184,0.23)',
-  pinkGlow: 'rgba(255,0,184,0.48)',
-  goldWash: 'rgba(255,215,0,0.20)',
+  pinkWash: 'rgba(248,23,149,0.12)',
+  pinkGlow: 'rgba(248,23,149,0.42)',
+  goldWash: 'rgba(255,215,0,0.10)',
   goldGlow: 'rgba(255,215,0,0.36)',
 } as const;
 
@@ -78,24 +79,24 @@ export const typography = {
 
 export const glow = {
   pink: {
-    shadowColor: brand.pinkElectric,
-    shadowOpacity: 0.78,
-    shadowRadius: 24,
+    shadowColor: brand.pink,
+    shadowOpacity: 0.68,
+    shadowRadius: 20,
     shadowOffset: { width: 0, height: 0 },
-    elevation: 16,
+    elevation: 12,
   },
   gold: {
-    shadowColor: brand.goldHot,
-    shadowOpacity: 0.62,
-    shadowRadius: 23,
+    shadowColor: brand.gold,
+    shadowOpacity: 0.56,
+    shadowRadius: 18,
     shadowOffset: { width: 0, height: 0 },
-    elevation: 14,
+    elevation: 10,
   },
 } as const;
 
 export const gradients = {
-  primaryCta: [brand.pinkLight, brand.pinkElectric, brand.magentaDeep],
-  premiumCta: [brand.goldLight, brand.goldHot, brand.goldDeep],
-  matchHalo: [brand.pinkElectric, brand.magentaDeep, background.base],
-  cardOverlay: ['rgba(5,3,8,0)', 'rgba(5,3,8,0.88)'],
+  primaryCta: ['rgba(248,23,149,0.78)', brand.pink, brand.pink],
+  premiumCta: ['rgba(255,215,0,0.78)', brand.gold, brand.gold],
+  matchHalo: ['rgba(248,23,149,0.72)', 'rgba(248,23,149,0.24)', background.base],
+  cardOverlay: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.88)'],
 } as const;

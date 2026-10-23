@@ -4,7 +4,7 @@
   publish = "apps/mobile/dist"
 
 [build.environment]
-  NODE_VERSION = "22.13.0"
+  NODE_VERSION = "22"
   PNPM_VERSION = "9.15.5"
   HUSKY = "0"
 

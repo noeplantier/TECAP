@@ -1,5 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +14,7 @@ import { isBackendEnabled } from '../lib/runtime';
 import { supabase } from '../lib/supabase';
 import { useAppStore } from '../state/useAppStore';
 import { colors, radius } from '../theme';
+import { NeonIcon } from './NeonIcon';
 
 type TabBarState = { index: number; routes: Array<{ key: string; name: string }> };
 type TabBarNavigation = { navigate: (name: string, params?: object) => void };
@@ -18,7 +26,7 @@ type TabDefinition = {
 };
 
 const tabItems: Record<string, TabDefinition> = {
-  DiscoverTab: { label: 'Découvrir', icon: 'heart-outline', activeIcon: 'heart', accent: 'pink' },
+  DiscoverTab: { label: 'Découvrir', icon: 'eye-outline', activeIcon: 'eye', accent: 'pink' },
   OutingsTab: {
     label: 'Sorties',
     icon: 'location-outline',
@@ -56,6 +64,7 @@ export function TecapFloatingTabBar({
 }) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const [discoverBlinkSignal, setDiscoverBlinkSignal] = useState(0);
   const localUnread = useAppStore(
     (appState) =>
       appState.messages.filter((message) => !message.read && message.sender === 'them').length,
@@ -105,12 +114,15 @@ export function TecapFloatingTabBar({
           return (
             <Pressable
               key={route.key}
-              onPress={() =>
+              onPress={() => {
+                if (route.name === 'DiscoverTab') {
+                  setDiscoverBlinkSignal((signal) => signal + 1);
+                }
                 navigation.navigate(
                   route.name,
                   active ? { screen: tabRoots[route.name] } : undefined,
-                )
-              }
+                );
+              }}
               accessibilityRole='tab'
               accessibilityState={{ selected: active }}
               accessibilityLabel={item.label}
@@ -122,7 +134,11 @@ export function TecapFloatingTabBar({
               ]}
             >
               <View style={styles.iconWrap}>
-                <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={color} />
+                {route.name === 'DiscoverTab' ? (
+                  <DiscoverEyeIcon color={color} blinkSignal={discoverBlinkSignal} />
+                ) : (
+                  <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={color} />
+                )}
                 {route.name === 'MessagesTab' && unreadCount > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -140,6 +156,27 @@ export function TecapFloatingTabBar({
         })}
       </View>
     </View>
+  );
+}
+
+function DiscoverEyeIcon({ color, blinkSignal }: { color: string; blinkSignal: number }) {
+  const scaleY = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: scaleY.value }],
+  }));
+
+  useEffect(() => {
+    if (blinkSignal === 0) return;
+    scaleY.value = withSequence(
+      withTiming(0.06, { duration: 75, easing: Easing.in(Easing.quad) }),
+      withTiming(1, { duration: 125, easing: Easing.out(Easing.quad) }),
+    );
+  }, [blinkSignal, scaleY]);
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <NeonIcon name='eye-outline' size={20} color={color} tone='none' />
+    </Animated.View>
   );
 }
 

@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import Animated, {
   Easing,
@@ -14,14 +13,14 @@ import { isBackendEnabled } from '../lib/runtime';
 import { supabase } from '../lib/supabase';
 import { useAppStore } from '../state/useAppStore';
 import { colors, radius } from '../theme';
-import { NeonIcon } from './NeonIcon';
+import { NeonIcon, type NeonIconName } from './NeonIcon';
 
 type TabBarState = { index: number; routes: Array<{ key: string; name: string }> };
 type TabBarNavigation = { navigate: (name: string, params?: object) => void };
 type TabDefinition = {
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  activeIcon: keyof typeof Ionicons.glyphMap;
+  icon: NeonIconName;
+  activeIcon: NeonIconName;
   accent?: 'pink' | 'gold';
 };
 
@@ -135,9 +134,18 @@ export function TecapFloatingTabBar({
             >
               <View style={styles.iconWrap}>
                 {route.name === 'DiscoverTab' ? (
-                  <DiscoverEyeIcon color={color} blinkSignal={discoverBlinkSignal} />
+                  <DiscoverEyeIcon
+                    color={color}
+                    active={active}
+                    blinkSignal={discoverBlinkSignal}
+                  />
                 ) : (
-                  <Ionicons name={active ? item.activeIcon : item.icon} size={20} color={color} />
+                  <NeonIcon
+                    name={active ? item.activeIcon : item.icon}
+                    size={20}
+                    color={color}
+                    tone={active ? (item.accent === 'gold' ? 'gold' : 'pink') : 'none'}
+                  />
                 )}
                 {route.name === 'MessagesTab' && unreadCount > 0 && (
                   <View style={styles.badge}>
@@ -159,7 +167,15 @@ export function TecapFloatingTabBar({
   );
 }
 
-function DiscoverEyeIcon({ color, blinkSignal }: { color: string; blinkSignal: number }) {
+function DiscoverEyeIcon({
+  color,
+  active,
+  blinkSignal,
+}: {
+  color: string;
+  active: boolean;
+  blinkSignal: number;
+}) {
   const scaleY = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scaleY: scaleY.value }],
@@ -175,7 +191,7 @@ function DiscoverEyeIcon({ color, blinkSignal }: { color: string; blinkSignal: n
 
   return (
     <Animated.View style={animatedStyle}>
-      <NeonIcon name='eye-outline' size={20} color={color} tone='none' />
+      <NeonIcon name='eye-outline' size={20} color={color} tone={active ? 'pink' : 'none'} />
     </Animated.View>
   );
 }

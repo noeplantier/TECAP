@@ -9,6 +9,7 @@ import { isBackendEnabled } from '../lib/runtime';
 import { useAppStore } from '../state/useAppStore';
 import { colors, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
+import { NeonIcon } from '../components/NeonIcon';
 
 type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 type VenueItem = { name: string; count: number; type: string; emoji: string };
@@ -52,6 +53,45 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
       }))
     : demoVenues;
   const event = remoteEvents.data?.[0];
+  const mapCard = (
+    <View style={styles.mapCard}>
+      <View style={styles.mapCardHeader}>
+        <View style={styles.mapHeadCopy}>
+          <View style={styles.mapLabelRow}>
+            <NeonIcon name='location-outline' size={14} tone='pink' />
+            <Text style={styles.mapLabel}>
+              {isBackendEnabled ? 'CARTE' : 'CARTE · DÉMO'} · {city.toLocaleUpperCase('fr-FR')}
+            </Text>
+          </View>
+          <Text style={styles.mapTitle}>La carte du soir</Text>
+          <Text style={styles.mapSubtitle}>
+            {peopleOutTonight.length} plan{peopleOutTonight.length === 1 ? '' : 's'} partagé
+            {peopleOutTonight.length === 1 ? '' : 's'} volontairement
+          </Text>
+        </View>
+        <Pressable onPress={() => navigation.navigate('Map')} style={styles.mapButton}>
+          <NeonIcon name='expand-outline' size={14} tone='none' color={colors.ivoryText} />
+          <Text style={styles.mapButtonText}>Ouvrir</Text>
+        </Pressable>
+      </View>
+      {isFocused ? (
+        <MapCanvas
+          height={246}
+          initialRegion={{ ...SAINT_BRIEUC_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 }}
+          markers={isBackendEnabled ? [] : demoPois}
+          onMarkerPress={() => navigation.navigate('Map')}
+        />
+      ) : (
+        <View style={styles.mapPlaceholder} />
+      )}
+      <View style={styles.mapFooter}>
+        <NeonIcon name='shield-checkmark-outline' size={13} tone='none' color={colors.muted} />
+        <Text style={styles.mapFooterText}>
+          Lieux partagés par choix · jamais de GPS automatique
+        </Text>
+      </View>
+    </View>
+  );
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -76,6 +116,7 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
           T’as quoi de prévu ce soir ? ›
         </Text>
       </Pressable>
+      {mapCard}
       {displayStatus && (
         <Pressable onPress={() => navigation.navigate('EveningStatus')} style={styles.myStatus}>
           <Text style={styles.myStatusIcon}>●</Text>
@@ -135,31 +176,6 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
         <Pressable onPress={() => navigation.navigate('WhoLikedMe')} style={styles.quickLinkGold}>
           <Text style={styles.quickLinkTextGold}>♛ Likes</Text>
         </Pressable>
-      </View>
-      <View style={styles.mapCard}>
-        <View style={styles.mapCardHeader}>
-          <View>
-            <Text style={styles.mapLabel}>
-              {isBackendEnabled ? 'CARTE' : 'CARTE · DÉMO'} · {city.toLocaleUpperCase('fr-FR')}
-            </Text>
-            <Text style={styles.mapTitle}>
-              {peopleOutTonight.length} profils ont partagé un plan
-            </Text>
-          </View>
-          <Pressable onPress={() => navigation.navigate('Map')} style={styles.mapButton}>
-            <Text style={styles.mapButtonText}>Ouvrir ↗</Text>
-          </Pressable>
-        </View>
-        {isFocused ? (
-          <MapCanvas
-            height={210}
-            initialRegion={{ ...SAINT_BRIEUC_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 }}
-            markers={isBackendEnabled ? [] : demoPois}
-            onMarkerPress={() => navigation.navigate('Map')}
-          />
-        ) : (
-          <View style={styles.mapPlaceholder} />
-        )}
       </View>
       <View style={styles.sectionHead}>
         <Text style={styles.section}>Les lieux du soir</Text>
@@ -235,14 +251,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    borderColor: colors.line,
+    borderColor: 'rgba(248,23,149,0.36)',
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 13,
     marginTop: 16,
   },
-  statusCtaTitle: { color: colors.text, fontSize: 13, fontWeight: '700' },
+  statusCtaTitle: { color: colors.pink, fontSize: 13, fontWeight: '800' },
   myStatus: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -253,7 +269,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginTop: 13,
   },
-  myStatusIcon: { color: colors.green, fontSize: 17, marginRight: 10 },
+  myStatusIcon: { color: colors.pink, fontSize: 17, marginRight: 10 },
   myStatusCopy: { flex: 1 },
   myStatusTitle: { color: colors.text, fontSize: 12, fontWeight: '700' },
   myStatusBody: { color: colors.mutedStrong, fontSize: 10, marginTop: 3 },
@@ -312,39 +328,60 @@ const styles = StyleSheet.create({
   quickLinkTextGold: { color: colors.pink, fontSize: 9, fontWeight: '700' },
   mapCard: {
     backgroundColor: colors.surfaceStrong,
-    borderColor: colors.line,
+    borderColor: 'rgba(248,23,149,0.38)',
     borderWidth: 1,
     borderRadius: radius.lg,
     overflow: 'hidden',
     position: 'relative',
     padding: 10,
+    marginTop: 14,
+    shadowColor: colors.pink,
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 7,
   },
   mapCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 4,
-    paddingBottom: 10,
+    padding: 5,
+    paddingBottom: 12,
+    gap: 10,
   },
+  mapHeadCopy: { flex: 1 },
+  mapLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   mapPlaceholder: {
-    height: 210,
+    height: 246,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceStrong,
   },
   mapLabel: {
-    color: colors.mutedStrong,
+    color: colors.pink,
     fontSize: 9,
     letterSpacing: 1,
     fontWeight: '900',
   },
-  mapTitle: { color: colors.text, fontSize: 11, fontWeight: '900', marginTop: 4 },
+  mapTitle: { color: colors.text, fontSize: 15, fontWeight: '900', marginTop: 4 },
+  mapSubtitle: { color: colors.muted, fontSize: 10, marginTop: 3 },
   mapButton: {
-    backgroundColor: colors.surfaceSoft,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.pink,
     borderRadius: radius.pill,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  mapButtonText: { color: colors.text, fontSize: 10, fontWeight: '700' },
+  mapButtonText: { color: colors.ivoryText, fontSize: 10, fontWeight: '900' },
+  mapFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingTop: 9,
+  },
+  mapFooterText: { color: colors.muted, fontSize: 9 },
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',

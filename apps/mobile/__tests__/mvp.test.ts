@@ -23,7 +23,7 @@ describe('TECAP local MVP', () => {
 
   it('uses the exact TÉCAP pink and gold brand colors', () => {
     expect(brand.pink).toBe('#F81795');
-    expect(brand.gold).toBe('#FFD700');
+    expect(brand.gold).toBe('#FED176');
     expect(colors.pink).toBe(brand.pink);
     expect(colors.gold).toBe(brand.gold);
   });

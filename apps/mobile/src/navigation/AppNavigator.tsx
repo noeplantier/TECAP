@@ -7,12 +7,9 @@ import {
 import type { LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Platform } from 'react-native';
 import { AuthScreen } from '../screens/AuthScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { DiscoverScreen } from '../screens/DiscoverScreen';
@@ -40,9 +37,7 @@ import {
 } from '../screens/CommunityScreens';
 import { useAppStore } from '../state/useAppStore';
 import { colors } from '../theme';
-import { NeonIcon } from '../components/NeonIcon';
-import { isBackendEnabled } from '../lib/runtime';
-import { supabase } from '../lib/supabase';
+import { TecapFloatingTabBar } from '../components/TecapFloatingTabBar';
 import { TECAP_TAB_ORDER } from './tabConfig';
 
 const RootStack = createNativeStackNavigator();
@@ -185,43 +180,6 @@ const navigationTheme = {
   },
 };
 
-type TabBarState = { index: number; routes: Array<{ key: string; name: string }> };
-type TabBarNavigation = { navigate: (name: string) => void };
-type TabDefinition = {
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  activeIcon: keyof typeof Ionicons.glyphMap;
-  accent?: 'pink' | 'gold';
-};
-
-const tabItems: Record<string, TabDefinition> = {
-  DiscoverTab: {
-    label: 'Découvrir',
-    icon: 'heart-outline',
-    activeIcon: 'heart',
-    accent: 'pink',
-  },
-  OutingsTab: {
-    label: 'Sorties',
-    icon: 'location-outline',
-    activeIcon: 'location',
-    accent: 'pink',
-  },
-  MessagesTab: {
-    label: 'Messages',
-    icon: 'chatbubble-ellipses-outline',
-    activeIcon: 'chatbubble-ellipses',
-    accent: 'pink',
-  },
-  ProfileTab: { label: 'Profil', icon: 'person-outline', activeIcon: 'person', accent: 'pink' },
-  ShopTab: {
-    label: 'Boutique',
-    icon: 'bag-handle-outline',
-    activeIcon: 'bag-handle',
-    accent: 'gold',
-  },
-};
-
 function DiscoverStackScreen() {
   return (
     <DiscoverStack.Navigator screenOptions={{ headerShown: false }}>
@@ -286,108 +244,12 @@ const tabScreens = {
   ShopTab: ShopStackScreen,
 };
 
-function TecapTabBar({ state, navigation }: { state: TabBarState; navigation: TabBarNavigation }) {
-  const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
-  const localUnreadMessages = useAppStore(
-    (appState) =>
-      appState.messages.filter((message) => !message.read && message.sender === 'them').length,
-  );
-  const remoteUnreadCount = useQuery({
-    queryKey: ['backend-unread-notifications'],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('notifications')
-        .select('id', { count: 'exact', head: true })
-        .is('read_at', null)
-        .in('type', ['message', 'match']);
-      if (error) throw error;
-      return count ?? 0;
-    },
-    enabled: isBackendEnabled,
-    staleTime: 15_000,
-  });
-  useEffect(() => {
-    if (!isBackendEnabled) return;
-    let mounted = true;
-    let channel: ReturnType<typeof supabase.channel> | undefined;
-    void supabase.auth.getUser().then(({ data }) => {
-      if (!mounted || !data.user) return;
-      channel = supabase
-        .channel(`tecap-tab-notifications-${data.user.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${data.user.id}`,
-          },
-          () => void queryClient.invalidateQueries({ queryKey: ['backend-unread-notifications'] }),
-        )
-        .subscribe();
-    });
-    return () => {
-      mounted = false;
-      if (channel) void supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-  const unreadMessages = isBackendEnabled ? (remoteUnreadCount.data ?? 0) : localUnreadMessages;
-  return (
-    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-      {state.routes.map((route) => {
-        const focusedRoute = state.routes[state.index]?.name;
-        const active = focusedRoute === route.name;
-        const item = tabItems[route.name] ?? tabItems.DiscoverTab!;
-        const color = active
-          ? item.accent === 'gold'
-            ? colors.gold
-            : colors.pink
-          : 'rgba(255,255,255,0.62)';
-        return (
-          <Pressable
-            key={route.key}
-            onPress={() => navigation.navigate(route.name)}
-            accessibilityRole='tab'
-            accessibilityState={{ selected: active }}
-            accessibilityLabel={item.label}
-            style={({ pressed }) => [
-              styles.tab,
-              active && (item.accent === 'gold' ? styles.tabActiveGold : styles.tabActive),
-              pressed && styles.tabPressed,
-            ]}
-          >
-            <View style={styles.iconWrap}>
-              <NeonIcon
-                name={active ? item.activeIcon : item.icon}
-                size={active ? 22 : 20}
-                color={color}
-                tone={active ? (item.accent ?? 'pink') : 'none'}
-              />
-              {route.name === 'MessagesTab' && unreadMessages > 0 && (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadText}>
-                    {unreadMessages > 9 ? '9+' : unreadMessages}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Text style={[styles.tabLabel, { color }, active && styles.tabLabelActive]}>
-              {item.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 function MainTabs() {
   return (
     <Tab.Navigator
       initialRouteName='DiscoverTab'
-      tabBar={(props) => <TecapTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <TecapFloatingTabBar {...props} />}
+      screenOptions={{ headerShown: false, tabBarHideOnKeyboard: true }}
     >
       {TECAP_TAB_ORDER.map(({ name }) => (
         <Tab.Screen key={name} name={name} component={tabScreens[name]} />
@@ -434,61 +296,3 @@ export function AppNavigator() {
     </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#050505',
-    borderTopWidth: 1,
-    borderTopColor: colors.lineBright,
-    minHeight: 72,
-    paddingHorizontal: 5,
-    paddingTop: 7,
-  },
-  tab: {
-    flex: 1,
-    minHeight: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    borderRadius: 16,
-    marginHorizontal: 1,
-  },
-  tabActive: {
-    borderColor: colors.hotPink,
-    borderWidth: 1,
-    backgroundColor: colors.pinkWash,
-    shadowColor: colors.pinkElectric,
-    shadowOpacity: 0.72,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 11,
-  },
-  tabActiveGold: {
-    borderColor: colors.goldHot,
-    borderWidth: 1,
-    backgroundColor: colors.goldWash,
-    shadowColor: colors.goldHot,
-    shadowOpacity: 0.62,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 10,
-  },
-  tabPressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
-  iconWrap: { minHeight: 23, minWidth: 24, alignItems: 'center', justifyContent: 'center' },
-  unreadBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -9,
-    minWidth: 15,
-    height: 15,
-    borderRadius: 8,
-    backgroundColor: colors.pink,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  unreadText: { color: '#FFFFFF', fontSize: 8, fontWeight: '900' },
-  tabLabel: { fontSize: 9, includeFontPadding: false },
-  tabLabelActive: { fontWeight: '800' },
-});

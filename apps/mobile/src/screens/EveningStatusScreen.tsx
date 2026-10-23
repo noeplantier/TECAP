@@ -1,18 +1,8 @@
 import { useEffect, useState } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  Image,
-  TextInput,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View, TextInput } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BrandLogo } from '../components/BrandLogo';
 import { fetchBackendStatus, publishBackendStatus, removeBackendStatus } from '../lib/backend';
-import { demoPhotos } from '../lib/demo';
 import { isBackendEnabled } from '../lib/runtime';
 import { goToDiscover } from '../navigation/routes';
 import { useAppStore } from '../state/useAppStore';
@@ -29,9 +19,8 @@ const options = [
   'Match',
   'Plage',
   'Chill',
-  'Événement TÉCAP',
   'Entre amis',
-  'Selon les rencontres',
+  'Autre',
 ];
 const venueSuggestions = ['L’Apsara', 'Le Connétable', 'Le Liberté', 'Le MeM'];
 const durationOptions = [30, 60, 120, 240];
@@ -83,6 +72,7 @@ export function EveningStatusScreen({
           durationMinutes: duration,
         });
         await queryClient.invalidateQueries({ queryKey: ['backend-evening-status'] });
+        Alert.alert('Statut publié', 'Ton intention est visible pendant la durée choisie.');
       } else {
         publishOutingStatus({
           activityType: selected,
@@ -91,6 +81,7 @@ export function EveningStatusScreen({
           timeWindow: 'Ce soir',
           expiresAt: Date.now() + duration * 60 * 1000,
         });
+        Alert.alert('Statut publié', 'Ton intention est visible pendant la durée choisie.');
       }
     } catch (error) {
       Alert.alert(
@@ -106,6 +97,7 @@ export function EveningStatusScreen({
         await removeBackendStatus();
         await queryClient.invalidateQueries({ queryKey: ['backend-evening-status'] });
       } else removeOutingStatus();
+      Alert.alert('Statut retiré', 'Ton intention n’est plus visible.');
     } catch (error) {
       Alert.alert(
         'Retrait impossible',
@@ -126,15 +118,8 @@ export function EveningStatusScreen({
         </View>
         <Text style={styles.more}>•••</Text>
       </View>
-      <View style={styles.hero}>
-        <Image source={{ uri: demoPhotos.manon }} style={styles.image} />
-        <View style={styles.shade} />
-        <View style={styles.heroCopy}>
-          <Text style={styles.eyebrow}>✦ T’AS QUOI DE PRÉVU CE SOIR ?</Text>
-          <Text style={styles.name}>Partage ton intention</Text>
-          <Text style={styles.meta}>Volontaire · jamais de GPS automatique</Text>
-        </View>
-      </View>
+      <Text style={styles.heroTitle}>T’as quoi de prévu ce soir ?</Text>
+      <Text style={styles.meta}>Partage une intention, sans GPS automatique.</Text>
       <Text style={styles.question}>Choisis ton plan du soir</Text>
       <View style={styles.options}>
         {options.map((option) => (
@@ -237,15 +222,10 @@ const styles = StyleSheet.create({
   },
   back: { color: colors.text, fontSize: 32 },
   brandHeader: { alignItems: 'center', gap: 2 },
-  context: { color: colors.gold, fontSize: 7, letterSpacing: 1.2, fontWeight: '900' },
+  context: { color: colors.pink, fontSize: 8, letterSpacing: 0.8, fontWeight: '700' },
   more: { color: colors.mutedStrong },
-  hero: { height: 205, borderRadius: radius.lg, overflow: 'hidden', position: 'relative' },
-  image: { width: '100%', height: '100%' },
-  shade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(14,15,26,.44)' },
-  heroCopy: { position: 'absolute', bottom: 16, left: 15 },
-  eyebrow: { color: colors.gold, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
-  name: { color: colors.text, fontSize: 22, fontWeight: '900', marginTop: 7 },
-  meta: { color: colors.mutedStrong, fontSize: 10, marginTop: 3 },
+  heroTitle: { color: colors.text, fontSize: 23, lineHeight: 29, fontWeight: '800', marginTop: 3 },
+  meta: { color: colors.mutedStrong, fontSize: 11, marginTop: 5 },
   question: { color: colors.text, fontSize: 18, fontWeight: '900', marginTop: 18 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 11 },
   option: {
@@ -278,9 +258,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
-  suggestionActive: { borderColor: colors.gold, backgroundColor: colors.goldWash },
+  suggestionActive: { borderColor: colors.pink, backgroundColor: colors.pinkWash },
   suggestionText: { color: colors.mutedStrong, fontSize: 9 },
-  suggestionTextActive: { color: colors.goldLight, fontWeight: '800' },
+  suggestionTextActive: { color: colors.pink, fontWeight: '700' },
   durationTitle: { color: colors.text, fontSize: 12, fontWeight: '800', marginTop: 14 },
   durations: { flexDirection: 'row', gap: 7, marginTop: 8 },
   durationChip: {

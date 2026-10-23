@@ -3,7 +3,7 @@ export const background = {
   night: '#090909',
   elevated: '#111111',
   card: '#171717',
-  glass: 'rgba(17,17,17,0.90)',
+  glass: 'rgba(27,27,29,0.96)',
   overlay: 'rgba(0,0,0,0.82)',
 } as const;
 
@@ -13,7 +13,7 @@ export const text = {
   muted: 'rgba(255,255,255,0.58)',
 } as const;
 
-/** TÉCAP chromatic identity: one exact pink and one exact gold. */
+/** TÉCAP uses pink for action and gold only for Premium and the shop. */
 export const brand = {
   pink: '#F81795',
   hotPink: '#F81795',
@@ -21,11 +21,12 @@ export const brand = {
   pinkLight: '#F81795',
   magenta: '#F81795',
   magentaDeep: '#F81795',
-  gold: '#FFD700',
-  goldHot: '#FFD700',
-  goldLight: '#FFD700',
-  goldWhite: '#FFD700',
-  goldDeep: '#FFD700',
+  gold: '#FED176',
+  goldHot: '#FED176',
+  goldLight: '#FED176',
+  goldWhite: '#FED176',
+  goldDeep: '#FED176',
+  violetDeep: '#5B3A78',
 } as const;
 
 export const status = {
@@ -43,7 +44,7 @@ export const colors = {
   muted: text.muted,
   mutedStrong: text.secondary,
   pink: brand.pink,
-  pinkSoft: 'rgba(248,23,149,0.55)',
+  pinkSoft: 'rgba(248,23,149,0.22)',
   pinkElectric: brand.pink,
   pinkLight: brand.pink,
   magenta: brand.pink,
@@ -54,18 +55,19 @@ export const colors = {
   goldLight: brand.gold,
   goldWhite: brand.gold,
   goldDeep: brand.gold,
-  goldSoft: 'rgba(255,215,0,0.55)',
+  goldSoft: 'rgba(254,209,118,0.24)',
+  violetDeep: brand.violetDeep,
   ivory: '#FFFFFF',
   ivoryText: '#050505',
   green: status.success,
   danger: status.danger,
   line: 'rgba(255,255,255,0.16)',
-  lineBright: 'rgba(248,23,149,0.72)',
+  lineBright: 'rgba(255,255,255,0.20)',
   overlay: background.overlay,
-  pinkWash: 'rgba(248,23,149,0.12)',
-  pinkGlow: 'rgba(248,23,149,0.42)',
-  goldWash: 'rgba(255,215,0,0.10)',
-  goldGlow: 'rgba(255,215,0,0.36)',
+  pinkWash: 'rgba(248,23,149,0.08)',
+  pinkGlow: 'rgba(248,23,149,0.16)',
+  goldWash: 'rgba(254,209,118,0.07)',
+  goldGlow: 'rgba(254,209,118,0.14)',
 } as const;
 
 export const spacing = { xs: 6, sm: 10, md: 14, lg: 20, xl: 28, xxl: 36 };
@@ -80,23 +82,23 @@ export const typography = {
 export const glow = {
   pink: {
     shadowColor: brand.pink,
-    shadowOpacity: 0.68,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 12,
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   gold: {
     shadowColor: brand.gold,
-    shadowOpacity: 0.56,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 10,
+    shadowOpacity: 0.12,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
 } as const;
 
 export const gradients = {
-  primaryCta: ['rgba(248,23,149,0.78)', brand.pink, brand.pink],
-  premiumCta: ['rgba(255,215,0,0.78)', brand.gold, brand.gold],
-  matchHalo: ['rgba(248,23,149,0.72)', 'rgba(248,23,149,0.24)', background.base],
+  primaryCta: ['rgba(248,23,149,0.94)', brand.pink, brand.pink],
+  premiumCta: ['rgba(254,209,118,0.94)', brand.gold, brand.gold],
+  matchHalo: ['rgba(248,23,149,0.30)', 'rgba(248,23,149,0.10)', background.base],
   cardOverlay: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.88)'],
 } as const;

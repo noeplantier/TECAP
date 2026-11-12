@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { colors, glow, radius } from '../theme';
 import type { MapCanvasProps, MapMarker } from './mapTypes';
@@ -25,19 +26,21 @@ function installTecapMapStyles() {
   const style = document.createElement('style');
   style.id = 'tecap-leaflet-styles';
   style.textContent = `
-    .tecap-map-root .leaflet-control-zoom { border: 1px solid #F81795; box-shadow: 0 0 18px rgba(248,23,149,.35); }
-    .tecap-map-root .leaflet-control-zoom a { background: #111111; color: #FFFFFF; border-color: #444444; }
-    .tecap-map-root .leaflet-control-zoom a:hover { background: #202020; color: #FFD700; }
-    .tecap-map-root .leaflet-control-attribution { background: rgba(5,5,5,.78); color: #B8B8B8; }
-    .tecap-map-root .leaflet-control-attribution a { color: #F81795; }
-    .tecap-map-root .leaflet-tile-pane { filter: grayscale(1) brightness(.62); }
-    .tecap-map-root .leaflet-tooltip { background: #111111; border: 1px solid #F81795; color: #FFFFFF; box-shadow: 0 0 16px rgba(248,23,149,.32); }
-    .tecap-map-root .leaflet-tooltip-top:before { border-top-color: #F81795; }
+    .tecap-map-root img.leaflet-tile { max-width: none !important; max-height: none !important; }
+    .tecap-map-root .leaflet-tile-pane, .tecap-map-root .leaflet-tile-container { position: absolute; }
+    .tecap-map-root .leaflet-control-zoom { border: 1px solid ${colors.pink}; box-shadow: 0 0 18px ${colors.pinkGlow}; }
+    .tecap-map-root .leaflet-control-zoom a { background: ${colors.surface}; color: ${colors.text}; border-color: ${colors.line}; }
+    .tecap-map-root .leaflet-control-zoom a:hover { background: ${colors.surfaceSoft}; color: ${colors.gold}; }
+    .tecap-map-root .leaflet-control-attribution { background: ${colors.overlay}; color: ${colors.muted}; }
+    .tecap-map-root .leaflet-control-attribution a { color: ${colors.pink}; }
+    .tecap-map-root .leaflet-tile-pane { filter: grayscale(1) brightness(.72); }
+    .tecap-map-root .leaflet-tooltip { background: ${colors.surface}; border: 1px solid ${colors.pink}; color: ${colors.text}; box-shadow: 0 0 16px ${colors.pinkGlow}; }
+    .tecap-map-root .leaflet-tooltip-top:before { border-top-color: ${colors.pink}; }
     .tecap-leaflet-marker { background: transparent; border: 0; }
-    .tecap-marker-shell { width: 46px; height: 46px; border-radius: 24px; display: grid; place-items: center; position: relative; box-sizing: border-box; font-size: 17px; color: #FFFFFF; font-weight: 900; border: 2px solid #FFFFFF; background: #F81795; box-shadow: 0 0 10px #F81795, 0 0 25px rgba(248,23,149,.45); }
-    .tecap-marker-shell.tecap-marker-gold { background: #FFD700; color: #050505; border-color: #FFFFFF; box-shadow: 0 0 10px #FFD700, 0 0 25px rgba(255,215,0,.42); }
-    .tecap-marker-shell.tecap-marker-magenta { background: #F81795; border-color: #FFFFFF; }
-    .tecap-marker-count { position: absolute; right: -9px; top: -9px; min-width: 19px; height: 19px; padding: 0 4px; display: grid; place-items: center; border-radius: 12px; box-sizing: border-box; background: #050505; border: 1px solid #FFFFFF; color: #FFFFFF; font-size: 9px; }
+    .tecap-marker-shell { width: 46px; height: 46px; border-radius: 24px; display: grid; place-items: center; position: relative; box-sizing: border-box; font-size: 17px; color: ${colors.text}; font-weight: 900; border: 2px solid ${colors.text}; background: ${colors.pink}; box-shadow: 0 0 10px ${colors.pink}, 0 0 25px ${colors.pinkGlow}; }
+    .tecap-marker-shell.tecap-marker-gold { background: ${colors.gold}; color: ${colors.ivoryText}; border-color: ${colors.text}; box-shadow: 0 0 10px ${colors.gold}, 0 0 25px ${colors.goldGlow}; }
+    .tecap-marker-shell.tecap-marker-magenta { background: ${colors.magenta}; border-color: ${colors.text}; }
+    .tecap-marker-count { position: absolute; right: -9px; top: -9px; min-width: 19px; height: 19px; padding: 0 4px; display: grid; place-items: center; border-radius: 12px; box-sizing: border-box; background: ${colors.canvas}; border: 1px solid ${colors.text}; color: ${colors.text}; font-size: 9px; }
   `;
   document.head.appendChild(style);
 }
@@ -49,9 +52,10 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
   const center: [number, number] = [initialRegion.latitude, initialRegion.longitude];
 
   useEffect(() => {
-    if (!mapElement.current || mapRef.current) return;
+    const container = mapElement.current;
+    if (!container || mapRef.current) return;
     installTecapMapStyles();
-    const map = L.map(mapElement.current, {
+    const map = L.map(container, {
       zoomControl: true,
       attributionControl: true,
       minZoom: 11,
@@ -67,8 +71,28 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
     }).addTo(map);
     markerLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
-    window.setTimeout(() => map.invalidateSize(), 0);
+    let mounted = true;
+    let frameId: number | undefined;
+    const invalidateSize = () => {
+      if (!mounted) return;
+      if (frameId !== undefined) window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        frameId = undefined;
+        if (mapRef.current === map) map.invalidateSize({ pan: false, animate: false });
+      });
+    };
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(invalidateSize);
+    resizeObserver?.observe(container);
+    window.addEventListener('resize', invalidateSize, { passive: true });
+    map.whenReady(invalidateSize);
+    const initialResize = window.setTimeout(invalidateSize, 0);
     return () => {
+      mounted = false;
+      window.clearTimeout(initialResize);
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', invalidateSize);
+      if (frameId !== undefined) window.cancelAnimationFrame(frameId);
       markerLayerRef.current?.clearLayers();
       markerLayerRef.current = null;
       map.remove();

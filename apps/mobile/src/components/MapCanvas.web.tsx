@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -49,6 +49,7 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
   const mapElement = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerLayerRef = useRef<L.LayerGroup | null>(null);
+  const [tileError, setTileError] = useState(false);
   const center: [number, number] = [initialRegion.latitude, initialRegion.longitude];
 
   useEffect(() => {
@@ -62,13 +63,32 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
       maxZoom: 18,
       preferCanvas: true,
     }).setView(center, 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19,
       updateWhenIdle: true,
       updateWhenZooming: false,
       keepBuffer: 1,
-    }).addTo(map);
+    });
+    const failedTiles = new Set<string>();
+    const getTileUrl = (event: L.LeafletEvent) => {
+      const tile = (event as L.LeafletEvent & { tile?: HTMLImageElement }).tile;
+      return tile?.currentSrc || tile?.src;
+    };
+    const onTileError = (event: L.LeafletEvent) => {
+      const url = getTileUrl(event);
+      if (url) failedTiles.add(url);
+      setTileError(true);
+    };
+    const onTileLoad = (event: L.LeafletEvent) => {
+      const url = getTileUrl(event);
+      if (url) failedTiles.delete(url);
+      setTileError(failedTiles.size > 0);
+    };
+    tileLayer.on('tileerror', onTileError);
+    tileLayer.on('tileload', onTileLoad);
+    tileLayer.addTo(map);
+    setTileError(false);
     markerLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
     let mounted = true;
@@ -93,6 +113,8 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
       resizeObserver?.disconnect();
       window.removeEventListener('resize', invalidateSize);
       if (frameId !== undefined) window.cancelAnimationFrame(frameId);
+      tileLayer.off('tileerror', onTileError);
+      tileLayer.off('tileload', onTileLoad);
       markerLayerRef.current?.clearLayers();
       markerLayerRef.current = null;
       map.remove();
@@ -131,6 +153,14 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
       <View style={styles.mapRoot} nativeID='tecap-map-root'>
         <div ref={mapElement} className='tecap-map-root' style={styles.webMap} />
       </View>
+      {tileError && (
+        <View pointerEvents='none' style={styles.tileError} accessibilityRole='alert'>
+          <Text style={styles.tileErrorTitle}>Carte indisponible</Text>
+          <Text style={styles.tileErrorText}>
+            Les tuiles ne se chargent pas. Vérifie ta connexion.
+          </Text>
+        </View>
+      )}
       <Pressable onPress={recenter} style={styles.recenter} accessibilityLabel='Recentrer la carte'>
         <Text style={styles.recenterText}>⌾</Text>
       </Pressable>
@@ -154,6 +184,28 @@ const styles = StyleSheet.create({
   },
   mapRoot: { flex: 1 },
   webMap: { width: '100%', height: '100%' },
+  tileError: {
+    position: 'absolute',
+    top: '50%',
+    left: 18,
+    right: 18,
+    transform: [{ translateY: -27 }],
+    alignItems: 'center',
+    backgroundColor: colors.overlay,
+    borderColor: colors.danger,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  tileErrorTitle: { color: colors.text, fontSize: 11, fontWeight: '900', textAlign: 'center' },
+  tileErrorText: {
+    color: colors.mutedStrong,
+    fontSize: 9,
+    lineHeight: 13,
+    marginTop: 4,
+    textAlign: 'center',
+  },
   recenter: {
     position: 'absolute',
     top: 12,

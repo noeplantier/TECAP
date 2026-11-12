@@ -3,7 +3,7 @@ export const background = {
   night: '#090909',
   elevated: '#111111',
   card: '#171717',
-  glass: 'rgba(27,27,29,0.96)',
+  glass: 'rgba(27,27,29,0.90)',
   overlay: 'rgba(0,0,0,0.82)',
 } as const;
 

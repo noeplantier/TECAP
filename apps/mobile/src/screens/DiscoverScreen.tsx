@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   photo: { width: '100%', height: '100%' },
-  photoShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,3,8,.30)' },
+  photoShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,5,5,0.30)' },
   swipeLabel: {
     position: 'absolute',
     top: 28,

@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   heroPink: { borderColor: colors.hotPink, borderWidth: 1, ...glow.pink },
   heroGold: { borderColor: colors.goldHot, borderWidth: 1, ...glow.gold },
   heroImage: { width: '100%', height: '100%' },
-  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,3,8,.48)' },
+  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,5,5,0.48)' },
   heroCopy: { position: 'absolute', left: 18, right: 18, bottom: 18 },
   eyebrow: {
     color: colors.gold,
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
   comparisonMuted: { color: colors.muted, fontSize: 9, marginTop: 10 },
   comparisonFeature: { color: colors.gold, fontSize: 9, marginTop: 10 },
   featureCard: {
-    backgroundColor: 'rgba(13,12,23,.94)',
+    backgroundColor: colors.surface,
     borderColor: colors.line,
     borderWidth: 1,
     borderRadius: radius.lg,

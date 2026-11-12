@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isBackendEnabled } from '../lib/runtime';
 import { supabase } from '../lib/supabase';
 import { useAppStore } from '../state/useAppStore';
-import { colors, radius } from '../theme';
+import { background, colors, radius } from '../theme';
 import { NeonIcon, type NeonIconName } from './NeonIcon';
 
 type TabBarState = { index: number; routes: Array<{ key: string; name: string }> };
@@ -128,7 +128,7 @@ export function TecapFloatingTabBar({
               hitSlop={4}
               style={({ pressed }) => [
                 styles.tab,
-                active && styles.tabActive,
+                active && (item.accent === 'gold' ? styles.tabActiveGold : styles.tabActivePink),
                 pressed && styles.pressed,
               ]}
             >
@@ -205,10 +205,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 4,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(27,27,29,0.96)',
-    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: background.glass,
+    borderColor: colors.lineBright,
     borderWidth: StyleSheet.hairlineWidth,
-    shadowColor: '#000000',
+    shadowColor: background.base,
     shadowOpacity: 0.28,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 5 },
@@ -224,7 +224,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: 1,
   },
-  tabActive: { backgroundColor: 'rgba(255,255,255,0.07)' },
+  tabActivePink: {
+    backgroundColor: colors.pinkWash,
+    borderColor: colors.pinkSoft,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  tabActiveGold: {
+    backgroundColor: colors.goldWash,
+    borderColor: colors.goldSoft,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   pressed: { opacity: 0.72 },
   iconWrap: { minHeight: 22, minWidth: 24, alignItems: 'center', justifyContent: 'center' },
   badge: {
@@ -239,7 +248,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
   },
-  badgeText: { color: '#FFFFFF', fontSize: 8, fontWeight: '800' },
+  badgeText: { color: colors.text, fontSize: 8, fontWeight: '800' },
   label: { fontSize: 9, includeFontPadding: false },
   labelActive: { fontWeight: '700' },
 });

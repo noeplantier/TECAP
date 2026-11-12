@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    borderColor: 'rgba(248,23,149,0.36)',
+    borderColor: colors.pinkSoft,
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: 14,
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   quickLinkTextGold: { color: colors.pink, fontSize: 9, fontWeight: '700' },
   mapCard: {
     backgroundColor: colors.surfaceStrong,
-    borderColor: 'rgba(248,23,149,0.38)',
+    borderColor: colors.pinkSoft,
     borderWidth: 1,
     borderRadius: radius.lg,
     overflow: 'hidden',

@@ -239,6 +239,13 @@ export type Database = {
         Args: { p_city_slug?: string; p_limit?: number; p_cursor?: string };
         Returns: Json;
       };
+      get_match_profiles: { Args: { p_match_ids: string[] }; Returns: Json };
+      send_chat_message: {
+        Args: { p_match_id: string; p_body: string; p_client_message_id: string };
+        Returns: Json;
+      };
+      mark_conversation_read: { Args: { p_match_id: string }; Returns: Json };
+      get_unread_message_count: { Args: Record<string, never>; Returns: number };
       get_evening_hotspots: {
         Args: { p_city_slug?: string; p_min_members?: number; p_limit?: number };
         Returns: Json;

@@ -2,13 +2,14 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useIsFocused } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { fetchBackendEvents, fetchBackendProfiles, fetchBackendStatus } from '../lib/backend';
-import { demoPhotos, demoVenues } from '../lib/demo';
+import { demoPhotos, demoProfiles, demoVenues } from '../lib/demo';
 import { demoPois, SAINT_BRIEUC_CENTER } from '../lib/mapData';
 import { MapCanvas } from '../components/MapCanvas';
 import { isBackendEnabled } from '../lib/runtime';
 import { useAppStore } from '../state/useAppStore';
-import { colors, glow, radius, spacing } from '../theme';
+import { colors, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
+import { NeonIcon } from '../components/NeonIcon';
 
 type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 type VenueItem = { name: string; count: number; type: string; emoji: string };
@@ -36,7 +37,10 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
     ? remoteStatus.data?.status_type
     : outingStatus?.activityType;
   const displayVenue = isBackendEnabled ? remoteStatus.data?.venue : outingStatus?.venue;
-  const venueCounts = (remoteProfiles.data ?? []).reduce<Map<string, number>>((counts, profile) => {
+  const peopleOutTonight = (isBackendEnabled ? (remoteProfiles.data ?? []) : demoProfiles).filter(
+    (profile) => Boolean(profile.status),
+  );
+  const venueCounts = peopleOutTonight.reduce<Map<string, number>>((counts, profile) => {
     if (profile.venue) counts.set(profile.venue, (counts.get(profile.venue) ?? 0) + 1);
     return counts;
   }, new Map<string, number>());
@@ -49,22 +53,70 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
       }))
     : demoVenues;
   const event = remoteEvents.data?.[0];
+  const mapCard = (
+    <View style={styles.mapCard}>
+      <View style={styles.mapCardHeader}>
+        <View style={styles.mapHeadCopy}>
+          <View style={styles.mapLabelRow}>
+            <NeonIcon name='location-outline' size={14} tone='pink' />
+            <Text style={styles.mapLabel}>
+              {isBackendEnabled ? 'CARTE' : 'CARTE · DÉMO'} · {city.toLocaleUpperCase('fr-FR')}
+            </Text>
+          </View>
+          <Text style={styles.mapTitle}>La carte du soir</Text>
+          <Text style={styles.mapSubtitle}>
+            {peopleOutTonight.length} plan{peopleOutTonight.length === 1 ? '' : 's'} partagé
+            {peopleOutTonight.length === 1 ? '' : 's'} volontairement
+          </Text>
+        </View>
+        <Pressable onPress={() => navigation.navigate('Map')} style={styles.mapButton}>
+          <NeonIcon name='expand-outline' size={14} tone='none' color={colors.ivoryText} />
+          <Text style={styles.mapButtonText}>Ouvrir</Text>
+        </Pressable>
+      </View>
+      {isFocused ? (
+        <MapCanvas
+          height={246}
+          initialRegion={{ ...SAINT_BRIEUC_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 }}
+          markers={isBackendEnabled ? [] : demoPois}
+          onMarkerPress={() => navigation.navigate('Map')}
+        />
+      ) : (
+        <View style={styles.mapPlaceholder} />
+      )}
+      <View style={styles.mapFooter}>
+        <NeonIcon name='shield-checkmark-outline' size={13} tone='none' color={colors.muted} />
+        <Text style={styles.mapFooterText}>
+          Lieux partagés par choix · jamais de GPS automatique
+        </Text>
+      </View>
+    </View>
+  );
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <View>
           <BrandLogo size='medium' />
-          <Text style={styles.location}>⌖ {city} · ce soir</Text>
+          <Text style={styles.location}>
+            ⌖ {city} · ce soir{isBackendEnabled ? '' : ' · mode démo'}
+          </Text>
         </View>
         <Text style={styles.info}>ⓘ</Text>
       </View>
-      <Text style={styles.title}>
-        Qui sort{`\n`}
-        <Text style={styles.titleAccent}>ce soir ?</Text>
-      </Text>
+      <Text style={styles.title}>Ce soir</Text>
       <Text style={styles.subtitle}>
-        Découvre les intentions de sortie et les lieux indiqués volontairement par les membres.
+        Partage ton plan, puis découvre les membres qui sortent dans {city}.
       </Text>
+      <Pressable
+        onPress={() => navigation.navigate('EveningStatus')}
+        style={styles.statusCta}
+        accessibilityRole='button'
+      >
+        <Text style={styles.statusCtaTitle} numberOfLines={1}>
+          T’as quoi de prévu ce soir ? ›
+        </Text>
+      </Pressable>
+      {mapCard}
       {displayStatus && (
         <Pressable onPress={() => navigation.navigate('EveningStatus')} style={styles.myStatus}>
           <Text style={styles.myStatusIcon}>●</Text>
@@ -77,11 +129,43 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
           <Text style={styles.chevron}>›</Text>
         </Pressable>
       )}
-      <View style={styles.filters}>
-        <Text style={[styles.filter, styles.filterActive]}>Tous</Text>
-        <Text style={styles.filter}>Bar 🍸</Text>
-        <Text style={styles.filter}>Concert 🎶</Text>
+      <View style={styles.peopleHeader}>
+        <Text style={styles.section}>Qui sort ce soir ?</Text>
+        <Text style={styles.peopleCount}>{peopleOutTonight.length}</Text>
       </View>
+      {peopleOutTonight.length ? (
+        peopleOutTonight.slice(0, 6).map((person) => (
+          <Pressable
+            key={person.id}
+            style={styles.personRow}
+            onPress={() =>
+              navigation.navigate('DiscoverTab', {
+                screen: 'ProfileDetail',
+                params: { profileId: person.id },
+              })
+            }
+          >
+            <Image source={{ uri: person.photo }} style={styles.personPhoto} />
+            <View style={styles.personCopy}>
+              <Text style={styles.personName}>
+                {person.name}, {person.age}
+              </Text>
+              <Text style={styles.personPlan} numberOfLines={1}>
+                {person.status}
+              </Text>
+              <Text style={styles.personCity}>
+                {person.city}
+                {person.venue ? ` · ${person.venue}` : ''}
+              </Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
+        ))
+      ) : (
+        <Text style={styles.peopleEmpty}>
+          Les plans partagés apparaîtront ici. Ta position reste privée.
+        </Text>
+      )}
       <View style={styles.quickLinks}>
         <Pressable onPress={() => navigation.navigate('Friends')} style={styles.quickLink}>
           <Text style={styles.quickLinkText}>♧ Amis</Text>
@@ -92,27 +176,6 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
         <Pressable onPress={() => navigation.navigate('WhoLikedMe')} style={styles.quickLinkGold}>
           <Text style={styles.quickLinkTextGold}>♛ Likes</Text>
         </Pressable>
-      </View>
-      <View style={styles.mapCard}>
-        <View style={styles.mapCardHeader}>
-          <View>
-            <Text style={styles.mapLabel}>TÉCAP MAP · SAINT-BRIEUC</Text>
-            <Text style={styles.mapTitle}>26 personnes ont partagé un plan</Text>
-          </View>
-          <Pressable onPress={() => navigation.navigate('Map')} style={styles.mapButton}>
-            <Text style={styles.mapButtonText}>Ouvrir ↗</Text>
-          </Pressable>
-        </View>
-        {isFocused ? (
-          <MapCanvas
-            height={210}
-            initialRegion={{ ...SAINT_BRIEUC_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 }}
-            markers={demoPois}
-            onMarkerPress={() => navigation.navigate('Map')}
-          />
-        ) : (
-          <View style={styles.mapPlaceholder} />
-        )}
       </View>
       <View style={styles.sectionHead}>
         <Text style={styles.section}>Les lieux du soir</Text>
@@ -150,15 +213,17 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
         <Image source={{ uri: demoPhotos.night }} style={styles.eventImage} />
         <View style={styles.eventShade} />
         <View style={styles.eventCopy}>
-          <Text style={styles.eventEyebrow}>ÉVÉNEMENT TÉCAP · 18+</Text>
+          <Text style={styles.eventEyebrow}>
+            {event ? 'ÉVÉNEMENT TÉCAP' : 'ÉVÉNEMENT À CONFIRMER'}
+          </Text>
           <Text style={styles.eventTitle}>On se capte IRL.</Text>
           <Text style={styles.eventMeta}>
             {event
               ? `${new Date(event.starts_at).toLocaleDateString('fr-FR')} · ${event.venue} · ${event.city}`
-              : 'Vendredi · L’Apsara · Rennes'}
+              : 'Aucune date ni aucun lieu confirmés'}
           </Text>
         </View>
-        <View style={[styles.eventCta, glow.gold]}>
+        <View style={styles.eventCta}>
           <Text style={styles.eventCtaText}>Découvrir</Text>
         </View>
       </Pressable>
@@ -179,24 +244,67 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   location: { color: colors.muted, fontSize: 10, marginTop: 6 },
   info: { color: colors.text, fontSize: 22 },
-  title: { color: colors.text, fontSize: 32, lineHeight: 35, fontWeight: '900', marginTop: 26 },
-  titleAccent: { color: colors.pink },
+  title: { color: colors.text, fontSize: 28, lineHeight: 34, fontWeight: '800', marginTop: 25 },
   subtitle: { color: colors.mutedStrong, fontSize: 13, lineHeight: 19, marginTop: 9 },
+  statusCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderColor: colors.pinkSoft,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    marginTop: 16,
+  },
+  statusCtaTitle: { color: colors.pink, fontSize: 13, fontWeight: '800' },
   myStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.goldWash,
-    borderColor: colors.goldSoft,
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: 12,
     marginTop: 13,
   },
-  myStatusIcon: { color: colors.green, fontSize: 17, marginRight: 10 },
+  myStatusIcon: { color: colors.pink, fontSize: 17, marginRight: 10 },
   myStatusCopy: { flex: 1 },
-  myStatusTitle: { color: colors.text, fontSize: 12, fontWeight: '900' },
+  myStatusTitle: { color: colors.text, fontSize: 12, fontWeight: '700' },
   myStatusBody: { color: colors.mutedStrong, fontSize: 10, marginTop: 3 },
-  filters: { flexDirection: 'row', gap: 8, marginVertical: 17 },
+  peopleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 20,
+    marginBottom: 9,
+  },
+  peopleCount: { color: colors.muted, fontSize: 11 },
+  personRow: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.md,
+    padding: 9,
+    marginBottom: 8,
+  },
+  personPhoto: { width: 52, height: 52, borderRadius: 14, backgroundColor: colors.surfaceStrong },
+  personCopy: { flex: 1, marginLeft: 11, gap: 3 },
+  personName: { color: colors.text, fontSize: 12, fontWeight: '700' },
+  personPlan: { color: colors.pink, fontSize: 10 },
+  personCity: { color: colors.muted, fontSize: 9 },
+  peopleEmpty: {
+    color: colors.muted,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: 14,
+    fontSize: 11,
+    lineHeight: 16,
+  },
   quickLinks: { flexDirection: 'row', gap: 7, marginBottom: 13 },
   quickLink: {
     flex: 1,
@@ -213,57 +321,67 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.goldSoft,
-    backgroundColor: colors.goldWash,
-  },
-  quickLinkText: { color: colors.pinkLight, fontSize: 9, fontWeight: '900' },
-  quickLinkTextGold: { color: colors.goldLight, fontSize: 9, fontWeight: '900' },
-  filter: {
-    color: colors.mutedStrong,
     borderColor: colors.line,
-    borderWidth: 1,
-    borderRadius: radius.pill,
-    paddingHorizontal: 13,
-    paddingVertical: 7,
-    fontSize: 10,
+    backgroundColor: colors.surface,
   },
-  filterActive: { borderColor: colors.pink, color: colors.text },
+  quickLinkText: { color: colors.pink, fontSize: 9, fontWeight: '700' },
+  quickLinkTextGold: { color: colors.pink, fontSize: 9, fontWeight: '700' },
   mapCard: {
     backgroundColor: colors.surfaceStrong,
-    borderColor: colors.lineBright,
+    borderColor: colors.pinkSoft,
     borderWidth: 1,
     borderRadius: radius.lg,
     overflow: 'hidden',
     position: 'relative',
     padding: 10,
-    ...glow.pink,
+    marginTop: 14,
+    shadowColor: colors.pink,
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 7,
   },
   mapCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 4,
-    paddingBottom: 10,
+    padding: 5,
+    paddingBottom: 12,
+    gap: 10,
   },
+  mapHeadCopy: { flex: 1 },
+  mapLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   mapPlaceholder: {
-    height: 210,
+    height: 246,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceStrong,
   },
   mapLabel: {
-    color: colors.pinkLight,
+    color: colors.pink,
     fontSize: 9,
     letterSpacing: 1,
     fontWeight: '900',
   },
-  mapTitle: { color: colors.text, fontSize: 11, fontWeight: '900', marginTop: 4 },
+  mapTitle: { color: colors.text, fontSize: 15, fontWeight: '900', marginTop: 4 },
+  mapSubtitle: { color: colors.muted, fontSize: 10, marginTop: 3 },
   mapButton: {
-    backgroundColor: colors.goldHot,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.pink,
     borderRadius: radius.pill,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
   },
   mapButtonText: { color: colors.ivoryText, fontSize: 10, fontWeight: '900' },
+  mapFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingTop: 9,
+  },
+  mapFooterText: { color: colors.muted, fontSize: 9 },
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -306,18 +424,18 @@ const styles = StyleSheet.create({
   eventImage: { width: '100%', height: '100%' },
   eventShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,5,11,.48)' },
   eventCopy: { position: 'absolute', left: 15, bottom: 15 },
-  eventEyebrow: { color: colors.gold, fontSize: 9, fontWeight: '800' },
+  eventEyebrow: { color: colors.pink, fontSize: 9, fontWeight: '700' },
   eventTitle: { color: colors.text, fontSize: 20, fontWeight: '900', marginTop: 5 },
   eventMeta: { color: colors.mutedStrong, fontSize: 10, marginTop: 4 },
   eventCta: {
     position: 'absolute',
     right: 13,
     bottom: 14,
-    backgroundColor: colors.gold,
+    backgroundColor: colors.surfaceSoft,
     borderRadius: radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
-  eventCtaText: { color: colors.ivoryText, fontSize: 10, fontWeight: '900' },
+  eventCtaText: { color: colors.text, fontSize: 10, fontWeight: '700' },
   note: { color: colors.muted, fontSize: 9, lineHeight: 14, textAlign: 'center', marginTop: 18 },
 });

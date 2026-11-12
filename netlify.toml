@@ -1,11 +1,12 @@
 [build]
   base = "."
-  command = "npm install --global pnpm@9.15.5 && pnpm --version && pnpm install --frozen-lockfile && pnpm --filter @tecap/mobile run export:web"
+  command = "pnpm --filter @tecap/mobile run export:web"
   publish = "apps/mobile/dist"
 
 [build.environment]
-  NODE_VERSION = "22.13.0"
+  NODE_VERSION = "22"
   PNPM_VERSION = "9.15.5"
+  HUSKY = "0"
 
 [[redirects]]
   from = "/*"

@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
   Pressable,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -135,95 +137,107 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack?.()} accessibilityRole='button'>
-          <Text style={styles.back}>‹</Text>
-        </Pressable>
-        <Image source={{ uri: displayProfile.photo }} style={styles.headerAvatar} />
-        <View style={styles.headerCopy}>
-          <BrandLogo size='small' />
-          <Text style={styles.title}>
-            {displayProfile.name}, {displayProfile.age}
-          </Text>
-          <Text style={styles.subtitle}>
-            En ligne · {displayProfile.venue ?? 'disponible ce soir'}
-          </Text>
-        </View>
-        <Text style={styles.more}>•••</Text>
-      </View>
-      <Pressable
-        onPress={() => goToDiscover(navigation, 'Invitation')}
-        style={styles.catchCard}
-        accessibilityRole='button'
-      >
-        <Text style={styles.catchIcon}>✦</Text>
-        <View style={styles.catchCopy}>
-          <Text style={styles.catchTitle}>On se capte ce soir ?</Text>
-          <Text style={styles.catchBody}>
-            {pendingRequest ? 'Demande en attente de réponse' : 'Proposer un plan avec intention'}
-          </Text>
-        </View>
-        <Text style={styles.catchArrow}>›</Text>
-      </Pressable>
-      <ScrollView contentContainerStyle={styles.messages}>
-        <View style={styles.matchBanner}>
-          <Text style={styles.matchIcon}>♡</Text>
-          <View>
-            <Text style={styles.matchTitle}>Match récent</Text>
-            <Text style={styles.matchBody}>Vous partagez peut-être la même soirée.</Text>
-          </View>
-        </View>
-        {conversation.length === 0 && (
-          <View style={styles.welcome}>
-            <Text style={styles.welcomeTitle}>Commence la conversation</Text>
-            <Text style={styles.welcomeText}>
-              “Salut, ton plan {displayProfile.venue ?? 'de ce soir'} me tente bien.”
+    <KeyboardAvoidingView
+      style={styles.keyboardAvoider}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack?.()} accessibilityRole='button'>
+            <Text style={styles.back}>‹</Text>
+          </Pressable>
+          <Image source={{ uri: displayProfile.photo }} style={styles.headerAvatar} />
+          <View style={styles.headerCopy}>
+            <BrandLogo size='small' />
+            <Text style={styles.title}>
+              {displayProfile.name}, {displayProfile.age}
+            </Text>
+            <Text style={styles.subtitle}>
+              {isBackendEnabled
+                ? displayProfile.venue
+                  ? `Plan partagé · ${displayProfile.venue}`
+                  : 'Aucun lieu partagé'
+                : 'Mode démo · conversation simulée'}
             </Text>
           </View>
-        )}
-        {conversation.map((message) => (
-          <View
-            key={message.id}
-            style={[styles.messageWrap, message.sender === 'me' && styles.right]}
-          >
-            <View style={[styles.bubble, message.sender === 'me' && styles.bubbleRight]}>
-              <Text style={styles.messageText}>{message.text}</Text>
-            </View>
-            <Text style={styles.time}>
-              {new Date(message.createdAt).toLocaleTimeString('fr-FR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-              {message.sender === 'me' ? ' · Envoyé' : ''}
-            </Text>
-          </View>
-        ))}
-      </ScrollView>
-      <View style={styles.composer}>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          onSubmitEditing={send}
-          editable={!sending}
-          placeholder='Écris un message…'
-          placeholderTextColor={colors.muted}
-          style={styles.input}
-          returnKeyType='send'
-        />
+          <Text style={styles.more}>•••</Text>
+        </View>
         <Pressable
-          disabled={sending || !text.trim()}
-          onPress={send}
-          style={[styles.send, (!text.trim() || sending) && styles.sendDisabled]}
+          onPress={() => goToDiscover(navigation, 'Invitation')}
+          style={styles.catchCard}
+          accessibilityRole='button'
         >
-          <Text style={styles.sendText}>➤</Text>
+          <Text style={styles.catchIcon}>✦</Text>
+          <View style={styles.catchCopy}>
+            <Text style={styles.catchTitle}>On se capte ce soir ?</Text>
+            <Text style={styles.catchBody}>
+              {pendingRequest ? 'Demande en attente de réponse' : 'Proposer un plan avec intention'}
+            </Text>
+          </View>
+          <Text style={styles.catchArrow}>›</Text>
         </Pressable>
+        <ScrollView contentContainerStyle={styles.messages} keyboardShouldPersistTaps='handled'>
+          <View style={styles.matchBanner}>
+            <Text style={styles.matchIcon}>♡</Text>
+            <View>
+              <Text style={styles.matchTitle}>
+                {isBackendEnabled ? 'Match récent' : 'Match · Démo'}
+              </Text>
+              <Text style={styles.matchBody}>Vous partagez peut-être la même soirée.</Text>
+            </View>
+          </View>
+          {conversation.length === 0 && (
+            <View style={styles.welcome}>
+              <Text style={styles.welcomeTitle}>Commence la conversation</Text>
+              <Text style={styles.welcomeText}>
+                “Salut, ton plan {displayProfile.venue ?? 'de ce soir'} me tente bien.”
+              </Text>
+            </View>
+          )}
+          {conversation.map((message) => (
+            <View
+              key={message.id}
+              style={[styles.messageWrap, message.sender === 'me' && styles.right]}
+            >
+              <View style={[styles.bubble, message.sender === 'me' && styles.bubbleRight]}>
+                <Text style={styles.messageText}>{message.text}</Text>
+              </View>
+              <Text style={styles.time}>
+                {new Date(message.createdAt).toLocaleTimeString('fr-FR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+                {message.sender === 'me' ? ' · Envoyé' : ''}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
+        <View style={styles.composer}>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            onSubmitEditing={send}
+            editable={!sending}
+            placeholder='Écris un message…'
+            placeholderTextColor={colors.muted}
+            style={styles.input}
+            returnKeyType='send'
+          />
+          <Pressable
+            disabled={sending || !text.trim()}
+            onPress={send}
+            style={[styles.send, (!text.trim() || sending) && styles.sendDisabled]}
+          >
+            <Text style={styles.sendText}>➤</Text>
+          </Pressable>
+        </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoider: { flex: 1 },
   container: { flex: 1, backgroundColor: colors.canvas, paddingTop: 28 },
   listHeader: {
     flexDirection: 'row',
@@ -275,15 +289,15 @@ const styles = StyleSheet.create({
   matchBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.goldWash,
-    borderColor: colors.goldSoft,
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: 12,
     marginBottom: 18,
   },
-  matchIcon: { color: colors.gold, fontSize: 24, marginRight: 10 },
-  matchTitle: { color: colors.gold, fontSize: 12, fontWeight: '900' },
+  matchIcon: { color: colors.pink, fontSize: 24, marginRight: 10 },
+  matchTitle: { color: colors.text, fontSize: 12, fontWeight: '700' },
   matchBody: { color: colors.mutedStrong, fontSize: 9, marginTop: 3 },
   welcome: {
     backgroundColor: colors.surface,

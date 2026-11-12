@@ -1,27 +1,33 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  cancelAnimation,
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import type { DemoProfile } from '../lib/seedProfiles';
 import { demoProfiles } from '../lib/demo';
 import { fetchBackendProfiles, recordBackendSwipe } from '../lib/backend';
 import { isBackendEnabled } from '../lib/runtime';
-import { goToMessages, goToShop } from '../navigation/routes';
+import { goToShop } from '../navigation/routes';
 import { useAppStore } from '../state/useAppStore';
-import { colors, glow, radius, spacing } from '../theme';
+import { colors, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
+import { NeonIcon } from '../components/NeonIcon';
+import { rankDiscoveryProfiles } from '../lib/discoveryRanking';
 
 type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
-const SWIPE_THRESHOLD = 110;
-
 type SwipeDirection = 'like' | 'pass';
 
 export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
+  const { width, height } = useWindowDimensions();
+  const swipeThreshold = Math.min(140, Math.max(72, width * 0.28));
   const [index, setIndex] = useState(0);
   const [swiping, setSwiping] = useState(false);
   const translateX = useSharedValue(0);
@@ -29,6 +35,8 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
   const likedProfileIds = useAppStore((state) => state.likedProfileIds);
   const passedProfileIds = useAppStore((state) => state.passedProfileIds);
   const blockedProfileIds = useAppStore((state) => state.blockedProfileIds);
+  const city = useAppStore((state) => state.city);
+  const outingActivity = useAppStore((state) => state.outingStatus?.activityType);
   const subscription = useAppStore((state) => state.subscription);
   const likesRemaining = useAppStore((state) => state.likesRemaining());
   const likeProfile = useAppStore((state) => state.likeProfile);
@@ -42,13 +50,16 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
 
   const visibleProfiles = useMemo(
     () =>
-      sourceProfiles.filter(
-        (profile) =>
-          !likedProfileIds.includes(profile.id) &&
-          !passedProfileIds.includes(profile.id) &&
-          !blockedProfileIds.includes(profile.id),
+      rankDiscoveryProfiles(
+        sourceProfiles.filter(
+          (profile) =>
+            !likedProfileIds.includes(profile.id) &&
+            !passedProfileIds.includes(profile.id) &&
+            !blockedProfileIds.includes(profile.id),
+        ),
+        { city, activityType: outingActivity },
       ),
-    [blockedProfileIds, likedProfileIds, passedProfileIds, sourceProfiles],
+    [blockedProfileIds, city, likedProfileIds, outingActivity, passedProfileIds, sourceProfiles],
   );
   const current = visibleProfiles[index];
 
@@ -74,112 +85,126 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
     ],
   }));
 
-  const resetSwipe = () => {
+  const resetSwipe = useCallback(() => {
     pendingProfileRef.current = null;
     setSwiping(false);
     translateX.value = withSpring(0, { damping: 18, stiffness: 180 });
-  };
+  }, [translateX]);
 
-  const finishSwipe = (direction: SwipeDirection) => {
-    const profile = pendingProfileRef.current;
-    if (!profile) {
-      resetSwipe();
-      return;
-    }
-    if (direction === 'pass') passProfile(profile.id);
-    else likeProfile(profile.id, false);
-    pendingProfileRef.current = null;
-    translateX.value = 0;
-    setSwiping(false);
-  };
-
-  const swipe = async (direction: SwipeDirection) => {
-    if (!current || swiping) return;
-    const profile = current;
-    pendingProfileRef.current = profile;
-    setSwiping(true);
-
-    if (isBackendEnabled) {
+  const finishSwipe = useCallback(
+    async (direction: SwipeDirection) => {
+      const profile = pendingProfileRef.current;
+      if (!profile) {
+        resetSwipe();
+        return;
+      }
+      const openMatch = () =>
+        navigation.navigate('Match', {
+          profileId: profile.id,
+          profileName: profile.name,
+          profilePhoto: profile.photo,
+          venue: profile.venue,
+          status: profile.status,
+        });
       try {
-        const result = await recordBackendSwipe(profile.id, direction);
-        if (!result.allowed) {
-          resetSwipe();
-          goToShop(navigation);
-          return;
-        }
-        if (result.matched) {
-          likeProfile(profile.id, false);
+        if (isBackendEnabled) {
+          const result = await recordBackendSwipe(profile.id, direction);
+          if (!result.allowed) {
+            resetSwipe();
+            goToShop(navigation);
+            return;
+          }
+          if (direction === 'pass') passProfile(profile.id);
+          else likeProfile(profile.id, false);
           pendingProfileRef.current = null;
           setSwiping(false);
-          goToMessages(navigation);
+          translateX.value = 0;
+          if (result.matched) openMatch();
           return;
         }
+
+        if (direction === 'pass') {
+          passProfile(profile.id);
+        } else {
+          const result = likeProfile(profile.id, profile.willMatchOnLike);
+          if (!result.allowed) {
+            resetSwipe();
+            goToShop(navigation);
+            return;
+          }
+          if (result.matched) {
+            pendingProfileRef.current = null;
+            setSwiping(false);
+            translateX.value = 0;
+            openMatch();
+            return;
+          }
+        }
+
+        pendingProfileRef.current = null;
+        setSwiping(false);
+        translateX.value = 0;
       } catch (error) {
         resetSwipe();
         Alert.alert(
           'Action indisponible',
           error instanceof Error ? error.message : 'Réessaie dans un instant.',
         );
-        return;
       }
-    } else if (direction === 'like') {
-      const result = likeProfile(profile.id, profile.willMatchOnLike);
-      if (!result.allowed) {
-        resetSwipe();
-        goToShop(navigation);
-        return;
-      }
-      if (result.matched) {
-        pendingProfileRef.current = null;
-        setSwiping(false);
-        translateX.value = 0;
-        navigation.navigate('Match');
-        return;
-      }
-    }
+    },
+    [likeProfile, navigation, passProfile, resetSwipe, translateX],
+  );
 
-    translateX.value = withSpring(
-      direction === 'like' ? 460 : -460,
-      { damping: 18, stiffness: 160 },
-      (finished) => {
-        if (finished) runOnJS(finishSwipe)(direction);
-      },
-    );
-  };
+  const swipe = useCallback(
+    (direction: SwipeDirection) => {
+      if (!current || swiping || pendingProfileRef.current) return;
+      pendingProfileRef.current = current;
+      setSwiping(true);
+      cancelAnimation(translateX);
+      translateX.value = withTiming(
+        direction === 'like' ? 520 : -520,
+        { duration: 230, easing: Easing.out(Easing.cubic) },
+        (finished) => {
+          if (finished) runOnJS(finishSwipe)(direction);
+        },
+      );
+    },
+    [current, finishSwipe, swiping, translateX],
+  );
 
-  const panResponder = useMemo(
+  const panGesture = useMemo(
     () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_event, gesture) =>
-          !swiping && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
-        onPanResponderMove: (_event, gesture) => {
-          translateX.value = gesture.dx;
-        },
-        onPanResponderRelease: (_event, gesture) => {
-          if (Math.abs(gesture.dx) >= SWIPE_THRESHOLD) {
-            void swipe(gesture.dx > 0 ? 'like' : 'pass');
+      Gesture.Pan()
+        .enabled(!swiping)
+        .activeOffsetX([-8, 8])
+        .failOffsetY([-14, 14])
+        .onUpdate((event) => {
+          translateX.value = event.translationX;
+        })
+        .onEnd((event) => {
+          if (Math.abs(event.translationX) >= swipeThreshold) {
+            runOnJS(swipe)(event.translationX > 0 ? 'like' : 'pass');
           } else {
-            translateX.value = withSpring(0, { damping: 18, stiffness: 180 });
+            translateX.value = withSpring(0, { damping: 20, stiffness: 210 });
           }
-        },
-        onPanResponderTerminate: () => {
-          translateX.value = withSpring(0, { damping: 18, stiffness: 180 });
-        },
-      }),
-    [swipe, swiping, translateX],
+        })
+        .onFinalize((_event, success) => {
+          if (!success) translateX.value = withSpring(0, { damping: 20, stiffness: 210 });
+        }),
+    [swipe, swiping, swipeThreshold, translateX],
   );
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.navigate('Home')} accessibilityRole='button'>
-          <Text style={styles.back}>×</Text>
+          <NeonIcon name='close' size={23} tone='none' color={colors.mutedStrong} />
         </Pressable>
         <View style={styles.brandHeader}>
           <BrandLogo size='small' />
-          <Text style={styles.eyebrow}>DÉCOUVRIR</Text>
+          <Text style={styles.eyebrow}>{isBackendEnabled ? 'DÉCOUVRIR' : 'DÉCOUVRIR · DÉMO'}</Text>
         </View>
-        <Text style={styles.shield}>♢</Text>
+        <NeonIcon name='shield-checkmark-outline' size={21} tone='none' color={colors.muted} />
       </View>
       <View style={styles.quotaRow}>
         <Text style={styles.quota}>
@@ -193,58 +218,57 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
           </Text>
         </Pressable>
       </View>
-      <Pressable
-        onPress={() => navigation.navigate('Invitation')}
-        style={styles.specialInvite}
-        accessibilityRole='button'
-      >
-        <Text style={styles.specialIcon}>♡</Text>
-        <View style={styles.specialCopy}>
-          <Text style={styles.specialTitle}>On se capte ce soir ?</Text>
-          <Text style={styles.specialBody}>
-            Envoie une invitation spéciale au profil qui te plaît.
-          </Text>
-        </View>
-        <Text style={styles.specialArrow}>›</Text>
+      <Pressable onPress={() => navigation.navigate('Invitation')} style={styles.eveningLink}>
+        <Text style={styles.eveningLinkText}>T’as quoi de prévu ce soir ?</Text>
+        <Text style={styles.eveningLinkArrow}>›</Text>
       </Pressable>
       {current ? (
         <>
           <View style={styles.cardStage}>
-            <View style={styles.cardBackTwo} />
-            <View style={styles.cardBack} />
-            <Animated.View
-              {...panResponder.panHandlers}
-              style={[styles.card, glow.pink, cardStyle]}
-              accessibilityLabel={`Profil de ${current.name}, glisse à droite pour aimer ou à gauche pour passer`}
-            >
-              <Image source={{ uri: current.photo }} style={styles.photo} />
-              <View style={styles.photoShade} />
-              <Animated.View style={[styles.swipeLabel, styles.likeLabel, likeLabelStyle]}>
-                <Text style={styles.likeLabelText}>J’AIME</Text>
-              </Animated.View>
-              <Animated.View style={[styles.swipeLabel, styles.passLabel, passLabelStyle]}>
-                <Text style={styles.passLabelText}>PASSER</Text>
-              </Animated.View>
-              <View style={styles.cardTop}>
-                <Text style={styles.status}>● {current.status ?? 'Disponible ce soir'}</Text>
-              </View>
-              <View style={styles.copy}>
-                <Text style={styles.name}>
-                  {current.name}, {current.age}
-                </Text>
-                <Text style={styles.bio}>{current.bio} ✨</Text>
-                <Text style={styles.meta}>
-                  ⌖ {current.city} · {current.distance} · volontairement partagé
-                </Text>
-                <View style={styles.tags}>
-                  {current.tags.slice(0, 3).map((tag) => (
-                    <Text key={tag} style={styles.tag}>
-                      {tag}
+            <GestureDetector gesture={panGesture}>
+              <Animated.View
+                style={[styles.card, cardStyle, { maxHeight: Math.min(535, height * 0.62) }]}
+                accessibilityLabel={`Profil de ${current.name}, glisse à droite pour aimer ou à gauche pour passer`}
+              >
+                <Image source={{ uri: current.photo }} style={styles.photo} />
+                <View style={styles.photoShade} />
+                <Animated.View style={[styles.swipeLabel, styles.likeLabel, likeLabelStyle]}>
+                  <Text style={styles.likeLabelText}>J’AIME</Text>
+                </Animated.View>
+                <Animated.View style={[styles.swipeLabel, styles.passLabel, passLabelStyle]}>
+                  <Text style={styles.passLabelText}>PASSER</Text>
+                </Animated.View>
+                {current.status ? (
+                  <View style={styles.cardTop}>
+                    <Text style={styles.status}>● {current.status}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.copy}>
+                  <Text style={styles.name}>
+                    {current.name}, {current.age}
+                  </Text>
+                  <Text style={styles.bio}>{current.bio} ✨</Text>
+                  <View style={styles.metaRow}>
+                    <NeonIcon
+                      name='location-outline'
+                      size={13}
+                      tone='none'
+                      color={colors.mutedStrong}
+                    />
+                    <Text style={styles.meta}>
+                      {current.city} · {current.distance} · volontairement partagé
                     </Text>
-                  ))}
+                  </View>
+                  <View style={styles.tags}>
+                    {current.tags.slice(0, 3).map((tag) => (
+                      <Text key={tag} style={styles.tag}>
+                        {tag}
+                      </Text>
+                    ))}
+                  </View>
                 </View>
-              </View>
-            </Animated.View>
+              </Animated.View>
+            </GestureDetector>
           </View>
           <Text style={styles.swipeHint}>Glisse à droite pour aimer · à gauche pour passer</Text>
           <Pressable
@@ -265,28 +289,15 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
               ]}
               accessibilityLabel='Passer à gauche'
             >
-              <Text style={styles.rejectText}>×</Text>
+              <NeonIcon name='close' size={27} tone='none' color={colors.mutedStrong} />
             </Pressable>
             <Pressable
               disabled={swiping}
               onPress={() => void swipe('like')}
-              style={({ pressed }) => [
-                styles.action,
-                styles.like,
-                glow.pink,
-                pressed && styles.actionPressed,
-              ]}
+              style={({ pressed }) => [styles.action, styles.like, pressed && styles.actionPressed]}
               accessibilityLabel='J’aime à droite'
             >
-              <Text style={styles.actionText}>♡</Text>
-            </Pressable>
-            <Pressable
-              disabled={swiping}
-              onPress={() => void swipe('like')}
-              style={({ pressed }) => [styles.action, styles.star, pressed && styles.actionPressed]}
-              accessibilityLabel='Super like'
-            >
-              <Text style={styles.starText}>☆</Text>
+              <NeonIcon name='heart' size={33} tone='pink' color={colors.text} />
             </Pressable>
           </View>
         </>
@@ -297,10 +308,7 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
           <Text style={styles.emptyBody}>
             Élargis tes préférences ou découvre qui sort ce soir.
           </Text>
-          <Pressable
-            onPress={() => navigation.navigate('Home')}
-            style={[styles.emptyButton, glow.gold]}
-          >
+          <Pressable onPress={() => navigation.navigate('Home')} style={styles.emptyButton}>
             <Text style={styles.emptyButtonText}>Qui sort ce soir ?</Text>
           </Pressable>
         </View>
@@ -317,20 +325,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  back: {
-    color: colors.text,
-    fontSize: 29,
-    textShadowColor: colors.pinkGlow,
-    textShadowRadius: 12,
-  },
   brandHeader: { alignItems: 'center', gap: 2 },
   eyebrow: { color: colors.pinkLight, fontSize: 9, letterSpacing: 1.4, fontWeight: '900' },
-  shield: {
-    color: colors.goldLight,
-    fontSize: 23,
-    textShadowColor: colors.goldGlow,
-    textShadowRadius: 10,
-  },
   quotaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -339,71 +335,31 @@ const styles = StyleSheet.create({
   },
   quota: { color: colors.mutedStrong, fontSize: 10, fontWeight: '700' },
   quotaLink: {
-    color: colors.goldLight,
+    color: colors.pink,
     fontSize: 10,
-    fontWeight: '900',
-    textShadowColor: colors.goldGlow,
-    textShadowRadius: 8,
+    fontWeight: '700',
   },
-  specialInvite: {
+  eveningLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.pinkWash,
-    borderColor: colors.hotPink,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: 10,
-    marginBottom: 12,
-    shadowColor: colors.pinkElectric,
-    shadowOpacity: 0.48,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 9,
+    justifyContent: 'space-between',
+    minHeight: 34,
+    marginBottom: 5,
   },
-  specialIcon: {
-    color: colors.pinkLight,
-    fontSize: 24,
-    marginRight: 9,
-    textShadowColor: colors.pink,
-    textShadowRadius: 12,
-  },
-  specialCopy: { flex: 1 },
-  specialTitle: { color: colors.text, fontSize: 12, fontWeight: '900' },
-  specialBody: { color: colors.mutedStrong, fontSize: 9, marginTop: 3 },
-  specialArrow: { color: colors.pinkLight, fontSize: 23 },
-  cardStage: { flex: 1, minHeight: 330, maxHeight: 535, position: 'relative' },
-  cardBackTwo: {
-    ...StyleSheet.absoluteFillObject,
-    top: 12,
-    left: 12,
-    right: 12,
-    borderRadius: radius.lg,
-    backgroundColor: colors.magentaDeep,
-    opacity: 0.26,
-    transform: [{ rotate: '3deg' }],
-  },
-  cardBack: {
-    ...StyleSheet.absoluteFillObject,
-    top: 6,
-    left: 6,
-    right: 6,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surfaceSoft,
-    borderColor: colors.pinkSoft,
-    borderWidth: 1,
-    transform: [{ rotate: '1.5deg' }],
-  },
+  eveningLinkText: { color: colors.pink, fontSize: 12, fontWeight: '700' },
+  eveningLinkArrow: { color: colors.mutedStrong, fontSize: 21 },
+  cardStage: { flex: 1, minHeight: 250, maxHeight: 535, position: 'relative' },
   card: {
     flex: 1,
     borderRadius: radius.lg,
     overflow: 'hidden',
     backgroundColor: colors.surface,
     position: 'relative',
-    borderColor: colors.hotPink,
-    borderWidth: 1,
+    borderColor: colors.line,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   photo: { width: '100%', height: '100%' },
-  photoShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,3,8,.30)' },
+  photoShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,5,5,0.30)' },
   swipeLabel: {
     position: 'absolute',
     top: 28,
@@ -412,10 +368,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderRadius: 9,
   },
-  likeLabel: { left: 20, borderColor: colors.pinkLight, backgroundColor: colors.pinkGlow },
-  passLabel: { right: 20, borderColor: colors.goldLight, backgroundColor: colors.goldGlow },
+  likeLabel: { left: 20, borderColor: colors.pink, backgroundColor: 'rgba(5,5,5,0.64)' },
+  passLabel: { right: 20, borderColor: colors.text, backgroundColor: 'rgba(5,5,5,0.64)' },
   likeLabelText: { color: colors.pinkLight, fontSize: 17, fontWeight: '900', letterSpacing: 1.2 },
-  passLabelText: { color: colors.goldLight, fontSize: 17, fontWeight: '900', letterSpacing: 1.2 },
+  passLabelText: { color: colors.text, fontSize: 17, fontWeight: '800', letterSpacing: 1.2 },
   cardTop: {
     position: 'absolute',
     left: 14,
@@ -429,20 +385,15 @@ const styles = StyleSheet.create({
   },
   status: { color: colors.text, fontSize: 10 },
   copy: { position: 'absolute', left: 17, right: 17, bottom: 17 },
-  name: {
-    color: colors.text,
-    fontSize: 27,
-    fontWeight: '900',
-    textShadowColor: colors.pinkGlow,
-    textShadowRadius: 10,
-  },
+  name: { color: colors.text, fontSize: 27, fontWeight: '800' },
   bio: { color: colors.text, fontSize: 13, marginTop: 7, lineHeight: 18 },
-  meta: { color: colors.mutedStrong, fontSize: 10, marginTop: 7 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 7 },
+  meta: { color: colors.mutedStrong, fontSize: 10 },
   tags: { flexDirection: 'row', gap: 6, marginTop: 14 },
   tag: {
     color: colors.text,
     backgroundColor: colors.overlay,
-    borderColor: colors.pinkSoft,
+    borderColor: colors.line,
     borderWidth: 1,
     borderRadius: radius.pill,
     paddingHorizontal: 9,
@@ -450,13 +401,11 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
   swipeHint: {
-    color: colors.pinkLight,
+    color: colors.mutedStrong,
     fontSize: 9,
     textAlign: 'center',
-    fontWeight: '800',
+    fontWeight: '600',
     marginTop: 7,
-    textShadowColor: colors.pinkGlow,
-    textShadowRadius: 7,
   },
   detailLink: { alignItems: 'center', paddingVertical: 7 },
   detailText: { color: colors.mutedStrong, fontSize: 10, textDecorationLine: 'underline' },
@@ -477,12 +426,8 @@ const styles = StyleSheet.create({
   },
   actionPressed: { transform: [{ scale: 0.91 }], opacity: 0.78 },
   reject: {
-    borderColor: colors.goldSoft,
+    borderColor: colors.line,
     backgroundColor: colors.surface,
-    shadowColor: colors.gold,
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 0 },
   },
   like: {
     width: 68,
@@ -491,27 +436,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.pink,
     borderColor: colors.pinkLight,
   },
-  star: { borderColor: colors.gold, backgroundColor: colors.surface },
-  actionText: {
-    color: colors.text,
-    fontSize: 34,
-    lineHeight: 37,
-    textShadowColor: colors.pinkElectric,
-    textShadowRadius: 12,
-  },
-  rejectText: { color: colors.goldLight, fontSize: 32, lineHeight: 35 },
-  starText: {
-    color: colors.goldLight,
-    fontSize: 28,
-    textShadowColor: colors.gold,
-    textShadowRadius: 11,
-  },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
   emptyIcon: {
-    color: colors.goldLight,
-    fontSize: 58,
-    textShadowColor: colors.goldGlow,
-    textShadowRadius: 20,
+    color: colors.pink,
+    fontSize: 42,
   },
   emptyTitle: {
     color: colors.text,
@@ -528,7 +456,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   emptyButton: {
-    backgroundColor: colors.gold,
+    backgroundColor: colors.pink,
     borderRadius: radius.pill,
     padding: 15,
     paddingHorizontal: 24,

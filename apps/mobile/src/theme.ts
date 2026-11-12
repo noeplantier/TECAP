@@ -1,30 +1,32 @@
 export const background = {
-  base: '#050308',
-  night: '#0A0710',
-  elevated: '#0D0812',
-  card: '#160C1B',
-  glass: 'rgba(18,16,25,0.86)',
-  overlay: 'rgba(5,3,8,0.82)',
+  base: '#050505',
+  night: '#090909',
+  elevated: '#111111',
+  card: '#171717',
+  glass: 'rgba(27,27,29,0.90)',
+  overlay: 'rgba(0,0,0,0.82)',
 } as const;
 
 export const text = {
-  primary: '#FFF9FE',
-  secondary: '#F5EAF4',
-  muted: '#B7A9B7',
+  primary: '#FFFFFF',
+  secondary: 'rgba(255,255,255,0.82)',
+  muted: 'rgba(255,255,255,0.58)',
 } as const;
 
+/** TÉCAP uses pink for action and gold only for Premium and the shop. */
 export const brand = {
-  pink: '#FF25B8',
-  hotPink: '#FF5AD1',
-  pinkElectric: '#FF0FAF',
-  pinkLight: '#FF9CE4',
-  magenta: '#E000AA',
-  magentaDeep: '#9D0879',
-  gold: '#FFC84D',
-  goldHot: '#FFD76A',
-  goldLight: '#FFE7A3',
-  goldWhite: '#FFF3C7',
-  goldDeep: '#A76010',
+  pink: '#F81795',
+  hotPink: '#F81795',
+  pinkElectric: '#F81795',
+  pinkLight: '#F81795',
+  magenta: '#F81795',
+  magentaDeep: '#F81795',
+  gold: '#FED176',
+  goldHot: '#FED176',
+  goldLight: '#FED176',
+  goldWhite: '#FED176',
+  goldDeep: '#FED176',
+  violetDeep: '#5B3A78',
 } as const;
 
 export const status = {
@@ -32,39 +34,40 @@ export const status = {
   danger: '#FF547F',
 } as const;
 
-/** Legacy aliases keep existing screens source-compatible while using the central tokens above. */
+/** Legacy aliases keep existing screens source-compatible using only brand tokens and neutral tints. */
 export const colors = {
   canvas: background.base,
   surface: background.elevated,
   surfaceStrong: background.card,
-  surfaceSoft: '#35102C',
+  surfaceSoft: '#202020',
   text: text.primary,
   muted: text.muted,
   mutedStrong: text.secondary,
   pink: brand.pink,
-  pinkSoft: '#D91B91',
-  pinkElectric: brand.pinkElectric,
-  pinkLight: brand.pinkLight,
-  magenta: brand.magenta,
-  magentaDeep: brand.magentaDeep,
-  hotPink: brand.hotPink,
+  pinkSoft: 'rgba(248,23,149,0.22)',
+  pinkElectric: brand.pink,
+  pinkLight: brand.pink,
+  magenta: brand.pink,
+  magentaDeep: brand.pink,
+  hotPink: brand.pink,
   gold: brand.gold,
-  goldHot: brand.goldHot,
-  goldLight: brand.goldLight,
-  goldWhite: brand.goldWhite,
-  goldDeep: brand.goldDeep,
-  goldSoft: '#AD7420',
-  ivory: brand.goldLight,
-  ivoryText: '#261405',
+  goldHot: brand.gold,
+  goldLight: brand.gold,
+  goldWhite: brand.gold,
+  goldDeep: brand.gold,
+  goldSoft: 'rgba(254,209,118,0.24)',
+  violetDeep: brand.violetDeep,
+  ivory: '#FFFFFF',
+  ivoryText: '#050505',
   green: status.success,
   danger: status.danger,
-  line: '#572044',
-  lineBright: brand.hotPink,
+  line: 'rgba(255,255,255,0.16)',
+  lineBright: 'rgba(255,255,255,0.20)',
   overlay: background.overlay,
-  pinkWash: 'rgba(255,37,184,0.20)',
-  pinkGlow: 'rgba(255,37,184,0.34)',
-  goldWash: 'rgba(255,200,77,0.18)',
-  goldGlow: 'rgba(255,200,77,0.28)',
+  pinkWash: 'rgba(248,23,149,0.08)',
+  pinkGlow: 'rgba(248,23,149,0.16)',
+  goldWash: 'rgba(254,209,118,0.07)',
+  goldGlow: 'rgba(254,209,118,0.14)',
 } as const;
 
 export const spacing = { xs: 6, sm: 10, md: 14, lg: 20, xl: 28, xxl: 36 };
@@ -78,24 +81,24 @@ export const typography = {
 
 export const glow = {
   pink: {
-    shadowColor: brand.pinkElectric,
-    shadowOpacity: 0.78,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 16,
+    shadowColor: brand.pink,
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   gold: {
-    shadowColor: brand.goldHot,
-    shadowOpacity: 0.62,
-    shadowRadius: 23,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 14,
+    shadowColor: brand.gold,
+    shadowOpacity: 0.12,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
 } as const;
 
 export const gradients = {
-  primaryCta: [brand.pinkLight, brand.pinkElectric, brand.magentaDeep],
-  premiumCta: [brand.goldLight, brand.goldHot, brand.goldDeep],
-  matchHalo: [brand.pinkElectric, brand.magentaDeep, background.base],
-  cardOverlay: ['rgba(5,3,8,0)', 'rgba(5,3,8,0.88)'],
+  primaryCta: ['rgba(248,23,149,0.94)', brand.pink, brand.pink],
+  premiumCta: ['rgba(254,209,118,0.94)', brand.gold, brand.gold],
+  matchHalo: ['rgba(248,23,149,0.30)', 'rgba(248,23,149,0.10)', background.base],
+  cardOverlay: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.88)'],
 } as const;

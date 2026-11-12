@@ -60,7 +60,7 @@ export async function joinRennesWaitlist(input: {
 type DiscoveryCandidate = {
   profile_id: string;
   first_name: string;
-  birth_date: string;
+  age: number;
   city: string;
   city_slug: string | null;
   bio: string;
@@ -75,48 +75,6 @@ type DiscoveryCandidate = {
   cursor_updated_at: string;
 };
 
-function ageFromBirthDate(birthDate: string) {
-  const birth = new Date(`${birthDate}T00:00:00Z`);
-  const now = new Date();
-  let age = now.getUTCFullYear() - birth.getUTCFullYear();
-  const birthdayPassed =
-    now.getUTCMonth() > birth.getUTCMonth() ||
-    (now.getUTCMonth() === birth.getUTCMonth() && now.getUTCDate() >= birth.getUTCDate());
-  if (!birthdayPassed) age -= 1;
-  return age;
-}
-
-function remoteProfileToDemo(
-  profile: Tables<'profiles'>,
-  status?: Tables<'evening_statuses'>,
-): DemoProfile {
-  const photo =
-    profile.avatar_path ??
-    `https://api.dicebear.com/9.x/shapes/svg?seed=tecap-${encodeURIComponent(profile.id)}`;
-  const interests = profile.bio
-    .split(/[,.]/)
-    .map((value) => value.trim())
-    .filter((value) => value.length > 2)
-    .slice(0, 4);
-  return {
-    id: profile.id,
-    name: profile.first_name,
-    age: ageFromBirthDate(profile.birth_date),
-    city: profile.city,
-    gender: 'non renseigné',
-    seeking: 'rencontres respectueuses',
-    bio: profile.bio,
-    interests,
-    tags: interests.slice(0, 2),
-    status: status ? `${status.status_type} · ${status.venue ?? 'lieu partagé'}` : undefined,
-    venue: status?.venue ?? undefined,
-    distance: 'à proximité',
-    photo,
-    gallery: [photo],
-    willMatchOnLike: false,
-  };
-}
-
 function candidateToDemo(candidate: DiscoveryCandidate): DemoProfile {
   const photo =
     candidate.avatar_path ??
@@ -124,7 +82,7 @@ function candidateToDemo(candidate: DiscoveryCandidate): DemoProfile {
   return {
     id: candidate.profile_id,
     name: candidate.first_name,
-    age: ageFromBirthDate(candidate.birth_date),
+    age: candidate.age,
     city: candidate.city,
     gender: candidate.gender ?? 'non renseigné',
     seeking: candidate.seeking ?? 'rencontres respectueuses',
@@ -140,6 +98,51 @@ function candidateToDemo(candidate: DiscoveryCandidate): DemoProfile {
     gallery: [photo],
     willMatchOnLike: false,
   };
+}
+
+type MatchProfileRow = {
+  match_id: string;
+  profile_id: string;
+  first_name: string;
+  age: number;
+  city: string;
+  bio: string;
+  avatar_path: string | null;
+  gender: string | null;
+  seeking: string | null;
+};
+
+function matchProfileToDemo(profile: MatchProfileRow): DemoProfile {
+  const photo =
+    profile.avatar_path ??
+    `https://api.dicebear.com/9.x/shapes/svg?seed=tecap-${encodeURIComponent(profile.profile_id)}`;
+  const interests = profile.bio
+    .split(/[,.]/)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 2)
+    .slice(0, 4);
+  return {
+    id: profile.profile_id,
+    name: profile.first_name,
+    age: profile.age,
+    city: profile.city,
+    gender: profile.gender ?? 'non renseigné',
+    seeking: profile.seeking ?? 'rencontres respectueuses',
+    bio: profile.bio,
+    interests,
+    tags: interests.slice(0, 2),
+    distance: 'Match TÉCAP',
+    photo,
+    gallery: [photo],
+    willMatchOnLike: false,
+  };
+}
+
+function newClientMessageId() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const value = Math.floor(Math.random() * 16);
+    return (char === 'x' ? value : (value & 0x3) | 0x8).toString(16);
+  });
 }
 
 async function currentUserId() {
@@ -205,7 +208,19 @@ export async function recordBackendSwipe(profileId: string, direction: 'like' | 
     direction,
   });
   if (error) throw error;
-  const result = data as { allowed?: boolean; matched?: boolean };
+  const result = data as {
+    allowed?: boolean;
+    matched?: boolean;
+    reason?: string;
+    match_id?: string | null;
+  };
+  if (result.matched && result.reason === 'recorded' && result.match_id) {
+    await supabase.functions
+      .invoke('send-social-push', {
+        body: { type: 'match', matchId: result.match_id },
+      })
+      .catch(() => undefined);
+  }
   return { allowed: result.allowed === true, matched: result.matched === true };
 }
 
@@ -213,11 +228,9 @@ export async function fetchBackendMatches(): Promise<BackendMatchSummary[]> {
   const userId = await currentUserId();
   const matches = await remoteMatchesFor(userId);
   if (!matches.length) return [];
-  const otherIds = matches.map((match) => (match.user_a === userId ? match.user_b : match.user_a));
-  const { data: profiles, error: profileError } = await supabase
-    .from('profiles')
-    .select('*')
-    .in('id', otherIds);
+  const { data: profiles, error: profileError } = await supabase.rpc('get_match_profiles', {
+    p_match_ids: matches.map((match) => match.id),
+  });
   if (profileError) throw profileError;
   const { data: messages, error: messageError } = await supabase
     .from('messages')
@@ -228,7 +241,9 @@ export async function fetchBackendMatches(): Promise<BackendMatchSummary[]> {
     )
     .order('created_at', { ascending: false });
   if (messageError) throw messageError;
-  const profileById = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+  const profileByMatchId = new Map(
+    ((profiles ?? []) as MatchProfileRow[]).map((profile) => [profile.match_id, profile]),
+  );
   const lastMessageByMatch = new Map<string, Tables<'messages'>>();
   for (const message of messages ?? [])
     if (!lastMessageByMatch.has(message.match_id))
@@ -236,14 +251,13 @@ export async function fetchBackendMatches(): Promise<BackendMatchSummary[]> {
   return matches
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
     .flatMap((match) => {
-      const otherId = match.user_a === userId ? match.user_b : match.user_a;
-      const profile = profileById.get(otherId);
+      const profile = profileByMatchId.get(match.id);
       if (!profile) return [];
       const lastMessage = lastMessageByMatch.get(match.id);
       return [
         {
           id: match.id,
-          profile: remoteProfileToDemo(profile),
+          profile: matchProfileToDemo(profile),
           lastMessage: lastMessage
             ? {
                 text: lastMessage.body,
@@ -257,30 +271,22 @@ export async function fetchBackendMatches(): Promise<BackendMatchSummary[]> {
 }
 
 export async function fetchBackendConversation(matchId: string): Promise<BackendConversation> {
-  const userId = await currentUserId();
-  const { data: match, error: matchError } = await supabase
-    .from('matches')
-    .select('*')
-    .eq('id', matchId)
-    .single();
-  if (matchError) throw matchError;
-  if (match.user_a !== userId && match.user_b !== userId)
-    throw new Error('Conversation inaccessible.');
-  const otherId = match.user_a === userId ? match.user_b : match.user_a;
-  const [{ data: profile, error: profileError }, { data: messages, error: messagesError }] =
+  const [{ data: profiles, error: profileError }, { data: messages, error: messagesError }] =
     await Promise.all([
-      supabase.from('profiles').select('*').eq('id', otherId).single(),
-      supabase
-        .from('messages')
-        .select('*')
-        .eq('match_id', matchId)
-        .order('created_at', { ascending: true }),
+      supabase.rpc('get_match_profiles', { p_match_ids: [matchId] }),
+      supabase.from('messages').select('*').eq('match_id', matchId).order('created_at'),
     ]);
   if (profileError) throw profileError;
   if (messagesError) throw messagesError;
+  const profile = ((profiles ?? []) as MatchProfileRow[]).find((row) => row.match_id === matchId);
+  if (!profile) throw new Error('Conversation inaccessible.');
+  const { error: readError } = await supabase.rpc('mark_conversation_read', {
+    p_match_id: matchId,
+  });
+  if (readError) throw readError;
   return {
-    id: match.id,
-    profile: remoteProfileToDemo(profile),
+    id: matchId,
+    profile: matchProfileToDemo(profile),
     messages: (messages ?? []).map((message) => ({
       id: message.id,
       text: message.body,
@@ -291,11 +297,20 @@ export async function fetchBackendConversation(matchId: string): Promise<Backend
 }
 
 export async function sendBackendMessage(matchId: string, body: string) {
-  const userId = await currentUserId();
-  const { error } = await supabase
-    .from('messages')
-    .insert({ match_id: matchId, sender_id: userId, body });
+  const { data, error } = await supabase.rpc('send_chat_message', {
+    p_match_id: matchId,
+    p_body: body,
+    p_client_message_id: newClientMessageId(),
+  });
   if (error) throw error;
+  const message = data as { id?: string } | null;
+  if (message?.id) {
+    await supabase.functions
+      .invoke('send-social-push', {
+        body: { type: 'message', matchId, messageId: message.id },
+      })
+      .catch(() => undefined);
+  }
 }
 
 function statusTypeFor(activityType: string): TablesInsert<'evening_statuses'>['status_type'] {

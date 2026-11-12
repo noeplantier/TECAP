@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BrandLogo } from '../components/BrandLogo';
+import { NeonIcon } from '../components/NeonIcon';
 import { type MapMarker, MapCanvas } from '../components/MapCanvas';
 import {
   deletePrivateLocation,
@@ -279,11 +280,14 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
           <BrandLogo size='small' />
           <Text style={styles.context}>TÉCAP MAP · {city.toUpperCase()}</Text>
         </View>
-        <Text style={styles.more}>ⓘ</Text>
+        <NeonIcon name='information-circle-outline' size={21} tone='gold' />
       </View>
       <View style={styles.titleRow}>
         <View style={styles.titleCopy}>
-          <Text style={styles.kicker}>CARTE SOCIALE · CE SOIR</Text>
+          <View style={styles.kickerRow}>
+            <NeonIcon name='map-outline' size={14} tone='pink' />
+            <Text style={styles.kicker}>CARTE SOCIALE · CE SOIR</Text>
+          </View>
           <Text style={styles.title}>Qui sort ce soir ?</Text>
           <Text style={styles.subtitle}>
             Des lieux choisis, des événements et des zones d’ambiance autour de toi.
@@ -321,12 +325,14 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
           onPress={() => navigation.navigate('EveningStatus')}
           style={[styles.primaryAction, glow.pink]}
         >
+          <NeonIcon name='heart' size={16} tone='none' color={colors.text} />
           <Text style={styles.primaryActionText}>T’AS QUOI DE PRÉVU CE SOIR ?</Text>
         </Pressable>
         <Pressable
           onPress={() => navigation.navigate('OutingsHome')}
           style={styles.secondaryAction}
         >
+          <NeonIcon name='location-outline' size={15} tone='gold' />
           <Text style={styles.secondaryActionText}>QUI SORT CE SOIR ?</Text>
         </Pressable>
       </View>
@@ -340,7 +346,12 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHead}>
             <View style={[styles.sheetIcon, selectedPoi.accent === 'gold' && styles.sheetIconGold]}>
-              <Text style={styles.sheetIconText}>{selectedPoi.icon}</Text>
+              <NeonIcon
+                name='location'
+                size={22}
+                tone={selectedPoi.accent === 'gold' ? 'gold' : 'pink'}
+                color={colors.text}
+              />
             </View>
             <View style={styles.sheetCopy}>
               <Text style={styles.sheetCategory}>{categoryLabels[selectedPoi.category]}</Text>
@@ -436,6 +447,7 @@ const styles = StyleSheet.create({
   more: { color: colors.text, fontSize: 16 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 22, marginBottom: 14 },
   titleCopy: { flex: 1, paddingRight: 10 },
+  kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   kicker: { color: colors.pinkLight, fontSize: 9, letterSpacing: 1.4, fontWeight: '900' },
   title: {
     color: colors.text,
@@ -473,6 +485,9 @@ const styles = StyleSheet.create({
   filterTextActive: { color: colors.text, fontWeight: '900' },
   mapActions: { gap: 8, marginTop: 10 },
   primaryAction: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
     alignItems: 'center',
     paddingVertical: 15,
     borderRadius: radius.pill,
@@ -480,6 +495,9 @@ const styles = StyleSheet.create({
   },
   primaryActionText: { color: colors.text, fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
   secondaryAction: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 7,
     alignItems: 'center',
     borderColor: colors.goldSoft,
     borderWidth: 1,

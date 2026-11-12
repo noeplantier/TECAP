@@ -16,16 +16,22 @@ export type DemoProfile = {
   willMatchOnLike: boolean;
 };
 
-const photos = [
-  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=85',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=85',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=85',
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=85',
-  'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=900&q=85',
-  'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=900&q=85',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=900&q=85',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=900&q=85',
-];
+export const demoPortraitsByGender = {
+  femme: [
+    'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=85',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=85',
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=85',
+    'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=900&q=85',
+    'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=900&q=85',
+  ],
+  homme: [
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=85',
+    'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=900&q=85',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=900&q=85',
+  ],
+} as const;
+
+type DemoGender = keyof typeof demoPortraitsByGender;
 
 const specs: Omit<DemoProfile, 'photo' | 'gallery'>[] = [
   {
@@ -408,7 +414,7 @@ const specs: Omit<DemoProfile, 'photo' | 'gallery'>[] = [
     name: 'Paul',
     age: 33,
     city: 'Saint-Brieuc',
-    gender: 'hommes et femmes',
+    gender: 'homme',
     seeking: 'hommes et femmes',
     bio: 'Artisan torréfacteur, vélo, podcasts et bonnes adresses.',
     interests: ['Café', 'Vélo', 'Podcasts', 'Food'],
@@ -480,8 +486,18 @@ const specs: Omit<DemoProfile, 'photo' | 'gallery'>[] = [
   },
 ];
 
-export const demoProfiles: DemoProfile[] = specs.map((profile, index) => ({
-  ...profile,
-  photo: photos[index % photos.length]!,
-  gallery: [photos[index % photos.length]!, photos[(index + 2) % photos.length]!],
-}));
+const portraitIndexes: Record<DemoGender, number> = { femme: 0, homme: 0 };
+
+export const demoProfiles: DemoProfile[] = specs.map((profile) => {
+  const gender = profile.gender as DemoGender;
+  const portraits = demoPortraitsByGender[gender];
+  const portraitIndex = portraitIndexes[gender] % portraits.length;
+  portraitIndexes[gender] += 1;
+  const photo = portraits[portraitIndex]!;
+
+  return {
+    ...profile,
+    photo,
+    gallery: [photo, portraits[(portraitIndex + 1) % portraits.length]!],
+  };
+});

@@ -7,11 +7,9 @@ import {
 import type { LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Platform } from 'react-native';
 import { AuthScreen } from '../screens/AuthScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { DiscoverScreen } from '../screens/DiscoverScreen';
@@ -39,6 +37,8 @@ import {
 } from '../screens/CommunityScreens';
 import { useAppStore } from '../state/useAppStore';
 import { colors } from '../theme';
+import { TecapFloatingTabBar } from '../components/TecapFloatingTabBar';
+import { TECAP_TAB_ORDER } from './tabConfig';
 
 const RootStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -51,7 +51,15 @@ const ShopStack = createNativeStackNavigator();
 type DiscoverParamList = {
   DiscoverHome: undefined;
   Home: undefined;
-  Match: undefined;
+  Match:
+    | {
+        profileId?: string;
+        profileName?: string;
+        profilePhoto?: string;
+        venue?: string;
+        status?: string;
+      }
+    | undefined;
   Invitation: undefined;
   ProfileDetail: { profileId?: string } | undefined;
 };
@@ -78,7 +86,6 @@ type ProfileParamList = {
 };
 type ShopParamList = { ShopHome: undefined };
 type MainTabParamList = {
-  HomeTab: undefined;
   DiscoverTab: NavigatorScreenParams<DiscoverParamList>;
   OutingsTab: NavigatorScreenParams<OutingsParamList>;
   MessagesTab: NavigatorScreenParams<MessagesParamList>;
@@ -173,44 +180,6 @@ const navigationTheme = {
   },
 };
 
-type TabBarState = { index: number; routes: Array<{ key: string; name: string }> };
-type TabBarNavigation = { navigate: (name: string) => void };
-type TabDefinition = {
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  activeIcon: keyof typeof Ionicons.glyphMap;
-  accent?: 'pink' | 'gold';
-};
-
-const tabItems: Record<string, TabDefinition> = {
-  HomeTab: { label: 'Accueil', icon: 'home-outline', activeIcon: 'home', accent: 'gold' },
-  DiscoverTab: {
-    label: 'Découvrir',
-    icon: 'compass-outline',
-    activeIcon: 'compass',
-    accent: 'pink',
-  },
-  OutingsTab: {
-    label: 'Sorties',
-    icon: 'location-outline',
-    activeIcon: 'location',
-    accent: 'pink',
-  },
-  MessagesTab: {
-    label: 'Messages',
-    icon: 'chatbubble-ellipses-outline',
-    activeIcon: 'chatbubble-ellipses',
-    accent: 'pink',
-  },
-  ProfileTab: { label: 'Profil', icon: 'person-outline', activeIcon: 'person', accent: 'pink' },
-  ShopTab: {
-    label: 'Boutique',
-    icon: 'bag-handle-outline',
-    activeIcon: 'bag-handle',
-    accent: 'gold',
-  },
-};
-
 function DiscoverStackScreen() {
   return (
     <DiscoverStack.Navigator screenOptions={{ headerShown: false }}>
@@ -267,61 +236,24 @@ function ShopStackScreen() {
   );
 }
 
-function TecapTabBar({ state, navigation }: { state: TabBarState; navigation: TabBarNavigation }) {
-  const insets = useSafeAreaInsets();
-  return (
-    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-      {state.routes
-        .filter((route) => route.name !== 'OutingsTab' && route.name !== 'ShopTab')
-        .map((route) => {
-          const focusedRoute = state.routes[state.index]?.name;
-          const active =
-            focusedRoute === route.name ||
-            (focusedRoute === 'OutingsTab' && route.name === 'HomeTab') ||
-            (focusedRoute === 'ShopTab' && route.name === 'ProfileTab');
-          const item = tabItems[route.name] ?? tabItems.DiscoverTab!;
-          const color = active
-            ? item.accent === 'gold'
-              ? colors.gold
-              : colors.pink
-            : colors.muted;
-          return (
-            <Pressable
-              key={route.key}
-              onPress={() => navigation.navigate(route.name)}
-              accessibilityRole='tab'
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={item.label}
-              style={({ pressed }) => [
-                styles.tab,
-                active && (item.accent === 'gold' ? styles.tabActiveGold : styles.tabActive),
-                pressed && styles.tabPressed,
-              ]}
-            >
-              <Ionicons name={active ? item.activeIcon : item.icon} size={22} color={color} />
-              <Text style={[styles.tabLabel, { color }, active && styles.tabLabelActive]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-    </View>
-  );
-}
+const tabScreens = {
+  DiscoverTab: DiscoverStackScreen,
+  OutingsTab: OutingsStackScreen,
+  MessagesTab: MessagesStackScreen,
+  ProfileTab: ProfileStackScreen,
+  ShopTab: ShopStackScreen,
+};
 
 function MainTabs() {
   return (
     <Tab.Navigator
-      initialRouteName='HomeTab'
-      tabBar={(props) => <TecapTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
+      initialRouteName='DiscoverTab'
+      tabBar={(props) => <TecapFloatingTabBar {...props} />}
+      screenOptions={{ headerShown: false, tabBarHideOnKeyboard: true }}
     >
-      <Tab.Screen name='HomeTab' component={HomeScreen} />
-      <Tab.Screen name='DiscoverTab' component={DiscoverStackScreen} />
-      <Tab.Screen name='OutingsTab' component={OutingsStackScreen} />
-      <Tab.Screen name='MessagesTab' component={MessagesStackScreen} />
-      <Tab.Screen name='ProfileTab' component={ProfileStackScreen} />
-      <Tab.Screen name='ShopTab' component={ShopStackScreen} />
+      {TECAP_TAB_ORDER.map(({ name }) => (
+        <Tab.Screen key={name} name={name} component={tabScreens[name]} />
+      ))}
     </Tab.Navigator>
   );
 }
@@ -364,47 +296,3 @@ export function AppNavigator() {
     </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#030207',
-    borderTopWidth: 1,
-    borderTopColor: colors.lineBright,
-    minHeight: 72,
-    paddingHorizontal: 5,
-    paddingTop: 7,
-  },
-  tab: {
-    flex: 1,
-    minHeight: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    borderRadius: 16,
-    marginHorizontal: 2,
-  },
-  tabActive: {
-    borderColor: colors.hotPink,
-    borderWidth: 1,
-    backgroundColor: colors.pinkWash,
-    shadowColor: colors.pinkElectric,
-    shadowOpacity: 0.72,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 11,
-  },
-  tabActiveGold: {
-    borderColor: colors.goldHot,
-    borderWidth: 1,
-    backgroundColor: colors.goldWash,
-    shadowColor: colors.goldHot,
-    shadowOpacity: 0.62,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 10,
-  },
-  tabPressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
-  tabLabel: { fontSize: 10 },
-  tabLabelActive: { fontWeight: '800' },
-});

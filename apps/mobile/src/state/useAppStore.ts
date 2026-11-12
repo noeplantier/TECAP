@@ -107,6 +107,11 @@ function notification(
 
 type AppState = {
   city: string;
+  profileFirstName: string;
+  profileBio: string;
+  profileSeeking: string;
+  profileGender: string;
+  discoverVisible: boolean;
   isAuthenticated: boolean;
   hasAccepted18Plus: boolean;
   subscription: SubscriptionTier;
@@ -126,6 +131,19 @@ type AppState = {
   mapVisible: boolean;
   approximateLocation?: ApproximateLocation;
   setCity: (city: string) => void;
+  updateDemoProfile: (
+    profile: Partial<
+      Pick<
+        AppState,
+        | 'profileFirstName'
+        | 'profileBio'
+        | 'profileSeeking'
+        | 'profileGender'
+        | 'city'
+        | 'discoverVisible'
+      >
+    >,
+  ) => void;
   setAuthenticated: (value: boolean) => void;
   setAccepted18Plus: (value: boolean) => void;
   activatePremium: (offer: OfferId) => void;
@@ -158,6 +176,11 @@ type AppState = {
 
 const initialState = {
   city: 'Saint-Brieuc',
+  profileFirstName: 'Manon',
+  profileBio: 'Architecture, surf et cuisine italienne face au coucher de soleil.',
+  profileSeeking: 'both',
+  profileGender: 'femme',
+  discoverVisible: true,
   isAuthenticated: false,
   hasAccepted18Plus: false,
   subscription: 'free' as SubscriptionTier,
@@ -182,6 +205,7 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       ...initialState,
       setCity: (city) => set({ city }),
+      updateDemoProfile: (profile) => set(profile),
       setAuthenticated: (isAuthenticated) => set({ isAuthenticated }),
       setAccepted18Plus: (hasAccepted18Plus) => set({ hasAccepted18Plus }),
       activatePremium: (lastPurchase) => set({ subscription: 'premium', lastPurchase }),

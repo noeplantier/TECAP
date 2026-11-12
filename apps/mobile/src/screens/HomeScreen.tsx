@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
@@ -69,6 +77,9 @@ function matchesFilter(profile: DemoProfile, filter: NightlifeFilter) {
 }
 
 export function HomeScreen({ navigation }: { navigation: Navigation }) {
+  const { width: viewportWidth } = useWindowDimensions();
+  const [shortcutGridWidth, setShortcutGridWidth] = useState(0);
+  const compactTiles = shortcutGridWidth > 0 ? shortcutGridWidth < 340 : viewportWidth < 360;
   const city = useAppStore((state) => state.city);
   const unreadNotifications = useAppStore(
     (state) => state.notifications.filter((notification) => !notification.read).length,
@@ -328,9 +339,12 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
       </Pressable>
       {reminderFeedback && <Text style={styles.reminderFeedback}>{reminderFeedback}</Text>}
 
-      <View style={styles.hubGrid}>
+      <View
+        style={styles.hubGrid}
+        onLayout={(event) => setShortcutGridWidth(Math.round(event.nativeEvent.layout.width))}
+      >
         {tiles.map((tile) => (
-          <FeatureTile key={tile.title} {...tile} />
+          <FeatureTile key={tile.title} {...tile} compact={compactTiles} />
         ))}
       </View>
 
@@ -457,11 +471,19 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
   );
 }
 
-function FeatureTile({ title, icon, image, onPress, gold = false, texture }: FeatureTileModel) {
+function FeatureTile({
+  title,
+  icon,
+  image,
+  onPress,
+  gold = false,
+  texture,
+  compact = false,
+}: FeatureTileModel & { compact?: boolean }) {
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.hubButton, gold && styles.hubButtonGold]}
+      style={[styles.hubButton, compact && styles.hubButtonCompact, gold && styles.hubButtonGold]}
       accessibilityRole='button'
       accessibilityLabel={title}
     >
@@ -710,6 +732,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
+  hubButtonCompact: { width: '48%' },
   hubButtonGold: {
     borderColor: colors.goldSoft,
     backgroundColor: colors.goldWash,

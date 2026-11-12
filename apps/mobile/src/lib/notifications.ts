@@ -131,6 +131,24 @@ export async function scheduleEveningReminder() {
   return { status: 'scheduled' as const, identifier };
 }
 
+export async function getEveningReminderEnabled() {
+  if (Platform.OS === 'web') return false;
+  await configureNotifications();
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  return scheduled.some((item) => item.content.data?.tecapReminder === 'evening');
+}
+
+export async function cancelEveningReminder() {
+  if (Platform.OS === 'web') return { status: 'unavailable' as const };
+  await configureNotifications();
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const reminders = scheduled.filter((item) => item.content.data?.tecapReminder === 'evening');
+  await Promise.all(
+    reminders.map((item) => Notifications.cancelScheduledNotificationAsync(item.identifier)),
+  );
+  return { status: 'disabled' as const };
+}
+
 export async function subscribeToBackendNotifications(
   onInsert: (notification?: BackendNotification) => void,
 ) {

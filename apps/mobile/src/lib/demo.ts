@@ -5,6 +5,8 @@ export type { DemoProfile } from './seedProfiles';
 
 export const demoPhotos = {
   lea: demoProfiles[0]!.photo,
+  homeBanner:
+    'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1800&q=90',
   manon:
     'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=85',
   night:

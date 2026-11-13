@@ -1,3 +1,5 @@
+import { demoPhotos } from './demo';
+
 export type PoiCategory =
   'tecap_event' | 'bar' | 'restaurant' | 'club' | 'concert' | 'hotspot' | 'user_plan';
 
@@ -17,7 +19,22 @@ export type TecapPoi = {
   isPremium?: boolean;
   startsAt?: string;
   action: 'event' | 'outings' | 'invite' | 'profile';
+  photoUrl?: string;
 };
+
+const poiPhotosByCategory: Record<PoiCategory, string> = {
+  tecap_event: demoPhotos.night,
+  bar: demoPhotos.night,
+  restaurant: demoPhotos.friends,
+  club: demoPhotos.night,
+  concert: demoPhotos.friends,
+  hotspot: demoPhotos.friends,
+  user_plan: demoPhotos.night,
+};
+
+export function poiPhotoForCategory(category: PoiCategory) {
+  return poiPhotosByCategory[category];
+}
 
 export const SAINT_BRIEUC_CENTER = { latitude: 48.5142, longitude: -2.7658 } as const;
 

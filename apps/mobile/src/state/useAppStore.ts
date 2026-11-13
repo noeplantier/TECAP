@@ -108,6 +108,7 @@ function notification(
 type AppState = {
   city: string;
   profileFirstName: string;
+  profilePhoto: string | undefined;
   profileBio: string;
   profileSeeking: string;
   profileGender: string;
@@ -139,6 +140,7 @@ type AppState = {
         | 'profileBio'
         | 'profileSeeking'
         | 'profileGender'
+        | 'profilePhoto'
         | 'city'
         | 'discoverVisible'
       >
@@ -177,6 +179,7 @@ type AppState = {
 const initialState = {
   city: 'Saint-Brieuc',
   profileFirstName: 'Manon',
+  profilePhoto: undefined,
   profileBio: 'Architecture, surf et cuisine italienne face au coucher de soleil.',
   profileSeeking: 'both',
   profileGender: 'femme',

@@ -232,7 +232,7 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
     >
       <View style={styles.hero}>
         <Image
-          source={{ uri: demoPhotos.night }}
+          source={{ uri: demoPhotos.homeBanner }}
           style={styles.heroPhoto}
           resizeMode='cover'
           accessible={false}
@@ -554,12 +554,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   heroPhoto: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    width: '80%',
-    height: 190,
-    opacity: 0.78,
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.82,
   },
   heroShade: { ...StyleSheet.absoluteFillObject },
   heroContent: { position: 'relative' },

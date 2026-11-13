@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import {
   Alert,
+  Image,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +19,26 @@ import { isBackendEnabled } from '../lib/runtime';
 import { BrandLogo } from '../components/BrandLogo';
 import { requestPushPermissionAndRegister, triggerDemoNotification } from '../lib/notifications';
 
+const PROFILE_PHOTO_BUCKET = 'tecap-profile-photos';
+const MAX_PROFILE_PHOTO_BYTES = 8 * 1024 * 1024;
+const PROFILE_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+function resolveProfilePhoto(value: string | null | undefined) {
+  if (!value) return undefined;
+  if (/^(https?:|blob:|data:|file:)/i.test(value)) return value;
+  const path = value.replace(new RegExp(`^${PROFILE_PHOTO_BUCKET}/`), '');
+  return supabase.storage.from(PROFILE_PHOTO_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+function profilePhotoObjectPath(value: string | null | undefined) {
+  if (!value) return null;
+  const marker = `/storage/v1/object/public/${PROFILE_PHOTO_BUCKET}/`;
+  const markerIndex = value.indexOf(marker);
+  if (markerIndex < 0) return null;
+  const encodedPath = value.slice(markerIndex + marker.length).split('?')[0];
+  return encodedPath ? decodeURIComponent(encodedPath) : null;
+}
+
 type Navigation = { navigate: (screen: string, params?: unknown) => void };
 type Profile = {
   first_name: string;
@@ -25,6 +48,7 @@ type Profile = {
   discover_visible: boolean;
   birth_date: string;
   gender: string | null;
+  avatar_path: string | null;
 };
 type EditableField = 'first_name' | 'city' | 'bio' | 'seeking';
 const labels: Record<EditableField, string> = {
@@ -50,6 +74,7 @@ function genderLabel(value: string) {
 
 export function ProfileScreen({ navigation }: { navigation: Navigation }) {
   const demoName = useAppStore((s) => s.profileFirstName);
+  const demoPhoto = useAppStore((s) => s.profilePhoto);
   const demoCity = useAppStore((s) => s.city);
   const demoBio = useAppStore((s) => s.profileBio);
   const demoSeeking = useAppStore((s) => s.profileSeeking);
@@ -65,6 +90,8 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
   const [draft, setDraft] = useState('');
   const [discoverVisible, setDiscoverVisible] = useState(demoVisible);
   const [visibilityBusy, setVisibilityBusy] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoFeedback, setPhotoFeedback] = useState('');
 
   useEffect(() => {
     if (!isBackendEnabled) return;
@@ -75,7 +102,9 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
         if (authError || !auth.user) throw authError ?? new Error('Session absente.');
         const { data, error } = await supabase
           .from('profiles')
-          .select('first_name, city, bio, seeking, discover_visible, birth_date, gender')
+          .select(
+            'first_name, city, bio, seeking, discover_visible, birth_date, gender, avatar_path',
+          )
           .eq('id', auth.user.id)
           .single();
         if (error) throw error;
@@ -133,6 +162,9 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
       ).length,
     [values.first_name, values.city, values.bio, values.seeking],
   );
+  const avatarUri = isBackendEnabled
+    ? resolveProfilePhoto(profile?.avatar_path)
+    : (demoPhoto ?? undefined);
   const setValue = (field: EditableField, value: string) => {
     if (isBackendEnabled) setProfile((p) => (p ? { ...p, [field]: value } : p));
     else
@@ -175,7 +207,9 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
           .from('profiles')
           .update(updatePayload)
           .eq('id', auth.user.id)
-          .select('first_name, city, bio, seeking, discover_visible, birth_date, gender')
+          .select(
+            'first_name, city, bio, seeking, discover_visible, birth_date, gender, avatar_path',
+          )
           .single();
         if (error) throw error;
         setProfile(data as Profile);
@@ -205,7 +239,7 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
         .from('profiles')
         .update({ discover_visible: next })
         .eq('id', auth.user.id)
-        .select('first_name, city, bio, seeking, discover_visible, birth_date, gender')
+        .select('first_name, city, bio, seeking, discover_visible, birth_date, gender, avatar_path')
         .single();
       if (error) throw error;
       setProfile(data as Profile);
@@ -217,6 +251,97 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
       );
     } finally {
       setVisibilityBusy(false);
+    }
+  };
+  const chooseProfilePhoto = async () => {
+    if (photoBusy) return;
+    setPhotoFeedback('');
+    setPhotoBusy(true);
+    try {
+      if (Platform.OS !== 'web') {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          setPhotoFeedback('Autorise l’accès à ta photothèque pour choisir une photo.');
+          return;
+        }
+      }
+      const selection = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.9,
+        selectionLimit: 1,
+      });
+      if (selection.canceled) return;
+      const asset = selection.assets[0];
+      if (!asset?.uri) {
+        setPhotoFeedback('Cette image n’a pas pu être ouverte. Choisis-en une autre.');
+        return;
+      }
+      if (asset.fileSize && asset.fileSize > MAX_PROFILE_PHOTO_BYTES) {
+        setPhotoFeedback('Choisis une image de moins de 8 Mo.');
+        return;
+      }
+      if (!isBackendEnabled) {
+        updateDemo({ profilePhoto: asset.uri });
+        setPhotoFeedback('Photo ajoutée à cette démo sur cet appareil.');
+        return;
+      }
+
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError || !auth.user) throw authError ?? new Error('Session absente.');
+      const response = await fetch(asset.uri);
+      if (!response.ok) throw new Error('Image inaccessible.');
+      const imageBlob = await response.blob();
+      if (imageBlob.size > MAX_PROFILE_PHOTO_BYTES) {
+        setPhotoFeedback('Choisis une image de moins de 8 Mo.');
+        return;
+      }
+      const contentType = (asset.mimeType ?? imageBlob.type ?? 'image/jpeg').toLowerCase();
+      if (!PROFILE_PHOTO_TYPES.has(contentType)) {
+        setPhotoFeedback('Formats acceptés : JPG, PNG ou WebP.');
+        return;
+      }
+      const extension =
+        contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
+      const storage = supabase.storage.from(PROFILE_PHOTO_BUCKET);
+      const objectPath = `${auth.user.id}/avatar-${Date.now()}.${extension}`;
+      const { data: uploaded, error: uploadError } = await storage.upload(objectPath, imageBlob, {
+        cacheControl: '3600',
+        contentType,
+        upsert: true,
+      });
+      if (uploadError) {
+        if (/bucket.*(not found|does not exist)|not found.*bucket/i.test(uploadError.message)) {
+          throw new Error('Stockage photo non configuré. Applique la migration Supabase 0011.');
+        }
+        throw uploadError;
+      }
+      const publicUrl = storage.getPublicUrl(uploaded.path).data.publicUrl;
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ avatar_path: publicUrl })
+        .eq('id', auth.user.id)
+        .select('first_name, city, bio, seeking, discover_visible, birth_date, gender, avatar_path')
+        .single();
+      if (error) {
+        await storage.remove([uploaded.path]);
+        throw error;
+      }
+      setProfile(data as Profile);
+      const previousPath = profilePhotoObjectPath(profile?.avatar_path);
+      if (previousPath?.startsWith(`${auth.user.id}/`) && previousPath !== uploaded.path) {
+        await storage.remove([previousPath]);
+      }
+      setPhotoFeedback('Photo de profil mise à jour.');
+    } catch (error) {
+      setPhotoFeedback(
+        error instanceof Error && error.message.startsWith('Stockage photo non configuré')
+          ? error.message
+          : 'Envoi impossible pour le moment. Vérifie ta connexion puis réessaie.',
+      );
+    } finally {
+      setPhotoBusy(false);
     }
   };
   const requestNotifications = async () => {
@@ -264,11 +389,37 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
         <Text style={styles.more}>•••</Text>
       </View>
       <View style={styles.profile}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {(values.first_name || '?').slice(0, 1).toUpperCase()}
-          </Text>
-        </View>
+        <Pressable
+          onPress={() => void chooseProfilePhoto()}
+          disabled={photoBusy}
+          style={styles.avatarTouchable}
+          accessibilityRole='button'
+          accessibilityLabel={
+            avatarUri ? 'Modifier ma photo de profil' : 'Ajouter ma photo de profil'
+          }
+        >
+          {avatarUri ? (
+            <Image
+              source={{ uri: avatarUri }}
+              style={styles.avatarPhoto}
+              resizeMode='cover'
+              accessibilityLabel='Photo de profil'
+            />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {(values.first_name || '?').slice(0, 1).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={styles.avatarEditBadge}>
+            <Text style={styles.avatarEditText}>{photoBusy ? '…' : '+'}</Text>
+          </View>
+        </Pressable>
+        <Text style={styles.photoHint}>
+          {photoBusy ? 'Envoi de la photo…' : 'Ajouter / modifier ma photo'}
+        </Text>
+        {photoFeedback ? <Text style={styles.photoFeedback}>{photoFeedback}</Text> : null}
         <Text style={styles.name}>
           {values.first_name || 'Ton prénom'}
           {age !== null ? `, ${age}` : ''}
@@ -504,15 +655,48 @@ const styles = StyleSheet.create({
   context: { color: colors.gold, fontSize: 7, letterSpacing: 1.2, fontWeight: '900' },
   more: { color: colors.mutedStrong, fontSize: 18 },
   profile: { alignItems: 'center', marginVertical: 25 },
+  avatarTouchable: { position: 'relative' },
   avatar: {
     width: 78,
     height: 78,
     borderRadius: 39,
     backgroundColor: colors.pink,
+    borderWidth: 2,
+    borderColor: colors.hotPink,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarPhoto: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 2,
+    borderColor: colors.hotPink,
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceStrong,
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  avatarEditText: { color: colors.goldLight, fontSize: 18, fontWeight: '900', lineHeight: 21 },
   avatarText: { color: colors.text, fontSize: 30, fontWeight: '800' },
+  photoHint: { color: colors.muted, fontSize: 10, fontWeight: '700', marginTop: 7 },
+  photoFeedback: {
+    maxWidth: 280,
+    color: colors.goldLight,
+    fontSize: 10,
+    lineHeight: 14,
+    textAlign: 'center',
+    marginTop: 5,
+  },
   name: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 12 },
   location: { color: colors.muted, fontSize: 12, marginTop: 5 },
   progressTrack: {

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { colors, glow, radius } from '../theme';
 import type { MapCanvasProps, MapMarker } from './mapTypes';
@@ -26,16 +25,64 @@ function installTecapMapStyles() {
   const style = document.createElement('style');
   style.id = 'tecap-leaflet-styles';
   style.textContent = `
+    .tecap-map-root.leaflet-container { overflow: hidden; -webkit-tap-highlight-color: transparent; background: ${colors.surfaceStrong}; outline-offset: 1px; font-family: system-ui, -apple-system, sans-serif; position: relative; }
+    .tecap-map-root .leaflet-pane,
+    .tecap-map-root .leaflet-tile,
+    .tecap-map-root .leaflet-marker-icon,
+    .tecap-map-root .leaflet-marker-shadow,
+    .tecap-map-root .leaflet-tile-container,
+    .tecap-map-root .leaflet-pane > svg,
+    .tecap-map-root .leaflet-pane > canvas,
+    .tecap-map-root .leaflet-zoom-box,
+    .tecap-map-root .leaflet-image-layer,
+    .tecap-map-root .leaflet-layer { position: absolute; left: 0; top: 0; }
+    .tecap-map-root .leaflet-tile,
+    .tecap-map-root .leaflet-marker-icon,
+    .tecap-map-root .leaflet-marker-shadow { user-select: none; -webkit-user-select: none; -webkit-user-drag: none; }
+    .tecap-map-root .leaflet-tile { filter: inherit; visibility: hidden; }
+    .tecap-map-root .leaflet-tile-loaded { visibility: inherit; }
+    .tecap-map-root .leaflet-map-pane { z-index: 400; }
+    .tecap-map-root .leaflet-tile-pane { z-index: 200; filter: grayscale(1) brightness(.72); }
+    .tecap-map-root .leaflet-overlay-pane { z-index: 400; }
+    .tecap-map-root .leaflet-shadow-pane { z-index: 500; }
+    .tecap-map-root .leaflet-marker-pane { z-index: 600; }
+    .tecap-map-root .leaflet-tooltip-pane { z-index: 650; }
+    .tecap-map-root .leaflet-popup-pane { z-index: 700; }
+    .tecap-map-root .leaflet-map-pane canvas { z-index: 100; }
+    .tecap-map-root .leaflet-map-pane svg { z-index: 200; }
+    .tecap-map-root .leaflet-zoom-anim .leaflet-zoom-animated { will-change: transform; transition: transform 0.25s cubic-bezier(0,0,0.25,1); }
+    .tecap-map-root .leaflet-zoom-anim .leaflet-tile,
+    .tecap-map-root .leaflet-pan-anim .leaflet-tile { transition: none; }
+    .tecap-map-root .leaflet-interactive { cursor: pointer; }
+    .tecap-map-root.leaflet-grab { cursor: grab; }
+    .tecap-map-root.leaflet-dragging,
+    .tecap-map-root.leaflet-dragging .leaflet-grab,
+    .tecap-map-root.leaflet-dragging .leaflet-interactive { cursor: grabbing; }
+    .tecap-map-root .leaflet-top,
+    .tecap-map-root .leaflet-bottom { position: absolute; z-index: 1000; pointer-events: none; }
+    .tecap-map-root .leaflet-top { top: 0; }
+    .tecap-map-root .leaflet-right { right: 0; }
+    .tecap-map-root .leaflet-bottom { bottom: 0; }
+    .tecap-map-root .leaflet-left { left: 0; }
+    .tecap-map-root .leaflet-control { position: relative; z-index: 800; pointer-events: auto; float: left; clear: both; }
+    .tecap-map-root .leaflet-right .leaflet-control { float: right; margin-right: 10px; }
+    .tecap-map-root .leaflet-left .leaflet-control { margin-left: 10px; }
+    .tecap-map-root .leaflet-top .leaflet-control { margin-top: 10px; }
+    .tecap-map-root .leaflet-bottom .leaflet-control { margin-bottom: 10px; }
+    .tecap-map-root .leaflet-bar { border-radius: 6px; overflow: hidden; }
+    .tecap-map-root .leaflet-bar a { display: block; width: 28px; height: 28px; line-height: 28px; text-align: center; text-decoration: none; font: bold 18px/28px system-ui, -apple-system, sans-serif; border-bottom: 1px solid ${colors.line}; }
+    .tecap-map-root .leaflet-bar a:last-child { border-bottom: none; }
+    .tecap-map-root .leaflet-bar a.leaflet-disabled { opacity: 0.45; cursor: default; }
+    .tecap-map-root img,
     .tecap-map-root img.leaflet-tile { max-width: none !important; max-height: none !important; }
-    .tecap-map-root .leaflet-tile-pane, .tecap-map-root .leaflet-tile-container { position: absolute; }
     .tecap-map-root .leaflet-control-zoom { border: 1px solid ${colors.pink}; box-shadow: 0 0 18px ${colors.pinkGlow}; }
     .tecap-map-root .leaflet-control-zoom a { background: ${colors.surface}; color: ${colors.text}; border-color: ${colors.line}; }
     .tecap-map-root .leaflet-control-zoom a:hover { background: ${colors.surfaceSoft}; color: ${colors.gold}; }
-    .tecap-map-root .leaflet-control-attribution { background: ${colors.overlay}; color: ${colors.muted}; }
-    .tecap-map-root .leaflet-control-attribution a { color: ${colors.pink}; }
-    .tecap-map-root .leaflet-tile-pane { filter: grayscale(1) brightness(.72); }
-    .tecap-map-root .leaflet-tooltip { background: ${colors.surface}; border: 1px solid ${colors.pink}; color: ${colors.text}; box-shadow: 0 0 16px ${colors.pinkGlow}; }
-    .tecap-map-root .leaflet-tooltip-top:before { border-top-color: ${colors.pink}; }
+    .tecap-map-root .leaflet-control-attribution { padding: 2px 6px; font-size: 10px; line-height: 1.3; margin: 0; background: ${colors.overlay}; color: ${colors.muted}; }
+    .tecap-map-root .leaflet-control-attribution a { color: ${colors.pink}; text-decoration: none; }
+    .tecap-map-root .leaflet-tooltip { position: absolute; padding: 6px 8px; border-radius: 6px; font-size: 11px; white-space: nowrap; user-select: none; pointer-events: none; background: ${colors.surface}; border: 1px solid ${colors.pink}; color: ${colors.text}; box-shadow: 0 0 16px ${colors.pinkGlow}; }
+    .tecap-map-root .leaflet-tooltip-top { margin-top: -6px; }
+    .tecap-map-root .leaflet-tooltip-top:before { content: ""; position: absolute; left: 50%; margin-left: -6px; bottom: 0; margin-bottom: -12px; border: 6px solid transparent; border-top-color: ${colors.pink}; }
     .tecap-leaflet-marker { background: transparent; border: 0; }
     .tecap-marker-shell { width: 46px; height: 46px; border-radius: 24px; display: grid; place-items: center; position: relative; box-sizing: border-box; font-size: 17px; color: ${colors.text}; font-weight: 900; border: 2px solid ${colors.text}; background: ${colors.pink}; box-shadow: 0 0 10px ${colors.pink}, 0 0 25px ${colors.pinkGlow}; }
     .tecap-marker-shell.tecap-marker-gold { background: ${colors.gold}; color: ${colors.ivoryText}; border-color: ${colors.text}; box-shadow: 0 0 10px ${colors.gold}, 0 0 25px ${colors.goldGlow}; }
@@ -45,12 +92,17 @@ function installTecapMapStyles() {
   document.head.appendChild(style);
 }
 
+const webMapDomStyle = { width: '100%', height: '100%' } as const;
+
 export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 }: MapCanvasProps) {
   const mapElement = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerLayerRef = useRef<L.LayerGroup | null>(null);
+  const onMarkerPressRef = useRef(onMarkerPress);
+  onMarkerPressRef.current = onMarkerPress;
   const [tileError, setTileError] = useState(false);
-  const center: [number, number] = [initialRegion.latitude, initialRegion.longitude];
+  const centerLat = initialRegion.latitude;
+  const centerLng = initialRegion.longitude;
 
   useEffect(() => {
     const container = mapElement.current;
@@ -62,7 +114,7 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
       minZoom: 11,
       maxZoom: 18,
       preferCanvas: true,
-    }).setView(center, 14);
+    }).setView([centerLat, centerLng], 14);
     const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19,
@@ -71,20 +123,29 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
       keepBuffer: 1,
     });
     const failedTiles = new Set<string>();
+    const loadedTiles = new Set<string>();
     const getTileUrl = (event: L.LeafletEvent) => {
       const tile = (event as L.LeafletEvent & { tile?: HTMLImageElement }).tile;
       return tile?.currentSrc || tile?.src;
     };
+    const onLoading = () => {
+      failedTiles.clear();
+      loadedTiles.clear();
+    };
     const onTileError = (event: L.LeafletEvent) => {
       const url = getTileUrl(event);
       if (url) failedTiles.add(url);
-      setTileError(true);
+      if (loadedTiles.size === 0) setTileError(true);
     };
     const onTileLoad = (event: L.LeafletEvent) => {
       const url = getTileUrl(event);
-      if (url) failedTiles.delete(url);
-      setTileError(failedTiles.size > 0);
+      if (url) {
+        failedTiles.delete(url);
+        loadedTiles.add(url);
+      }
+      setTileError(false);
     };
+    tileLayer.on('loading', onLoading);
     tileLayer.on('tileerror', onTileError);
     tileLayer.on('tileload', onTileLoad);
     tileLayer.addTo(map);
@@ -98,12 +159,21 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
       if (frameId !== undefined) window.cancelAnimationFrame(frameId);
       frameId = window.requestAnimationFrame(() => {
         frameId = undefined;
-        if (mapRef.current === map) map.invalidateSize({ pan: false, animate: false });
+        if (mapRef.current === map && container.clientWidth > 0 && container.clientHeight > 0) {
+          map.invalidateSize({ pan: false, animate: false });
+        }
       });
     };
     const resizeObserver =
       typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(invalidateSize);
     resizeObserver?.observe(container);
+    const intersectionObserver =
+      typeof IntersectionObserver === 'undefined'
+        ? null
+        : new IntersectionObserver((entries) => {
+            if (entries.some((entry) => entry.isIntersecting)) invalidateSize();
+          });
+    intersectionObserver?.observe(container);
     window.addEventListener('resize', invalidateSize, { passive: true });
     map.whenReady(invalidateSize);
     const initialResize = window.setTimeout(invalidateSize, 0);
@@ -111,8 +181,10 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
       mounted = false;
       window.clearTimeout(initialResize);
       resizeObserver?.disconnect();
+      intersectionObserver?.disconnect();
       window.removeEventListener('resize', invalidateSize);
       if (frameId !== undefined) window.cancelAnimationFrame(frameId);
+      tileLayer.off('loading', onLoading);
       tileLayer.off('tileerror', onTileError);
       tileLayer.off('tileload', onTileLoad);
       markerLayerRef.current?.clearLayers();
@@ -120,7 +192,13 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
       map.remove();
       mapRef.current = null;
     };
-  }, [center[0], center[1]]);
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.setView([centerLat, centerLng], map.getZoom(), { animate: false });
+  }, [centerLat, centerLng]);
 
   useEffect(() => {
     const layer = markerLayerRef.current;
@@ -138,20 +216,17 @@ export function MapCanvas({ initialRegion, markers, onMarkerPress, height = 360 
         direction: 'top',
         offset: [0, -18],
       });
-      leafletMarker.on('click', () => onMarkerPress?.(marker));
+      leafletMarker.on('click', () => onMarkerPressRef.current?.(marker));
       leafletMarker.addTo(layer);
     });
-  }, [markers, onMarkerPress]);
+  }, [markers]);
 
-  const recenter = () => mapRef.current?.setView(center, 14, { animate: true });
+  const recenter = () => mapRef.current?.setView([centerLat, centerLng], 14, { animate: true });
 
   return (
-    <View
-      style={[styles.wrapper, { height }]}
-      accessibilityLabel='Carte TÉCAP interactive de Saint-Brieuc'
-    >
+    <View style={[styles.wrapper, { height }]} accessibilityLabel='Carte TÉCAP interactive'>
       <View style={styles.mapRoot} nativeID='tecap-map-root'>
-        <div ref={mapElement} className='tecap-map-root' style={styles.webMap} />
+        <div ref={mapElement} className='tecap-map-root' style={webMapDomStyle} />
       </View>
       {tileError && (
         <View pointerEvents='none' style={styles.tileError} accessibilityRole='alert'>
@@ -183,7 +258,6 @@ const styles = StyleSheet.create({
     ...glow.pink,
   },
   mapRoot: { flex: 1 },
-  webMap: { width: '100%', height: '100%' },
   tileError: {
     position: 'absolute',
     top: '50%',

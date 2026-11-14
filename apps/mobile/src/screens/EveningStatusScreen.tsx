@@ -1,8 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View, TextInput } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BrandLogo } from '../components/BrandLogo';
-import { fetchBackendStatus, publishBackendStatus, removeBackendStatus } from '../lib/backend';
+import {
+  fetchBackendLaunchAreas,
+  fetchBackendPointsOfInterest,
+  fetchBackendStatus,
+  publishBackendStatus,
+  removeBackendStatus,
+} from '../lib/backend';
 import { isBackendEnabled } from '../lib/runtime';
 import { goToDiscover } from '../navigation/routes';
 import { useAppStore } from '../state/useAppStore';
@@ -22,8 +28,45 @@ const options = [
   'Entre amis',
   'Autre',
 ];
-const venueSuggestions = ['L’Apsara', 'Le Connétable', 'Le Liberté', 'Le MeM'];
+const demoVenueSuggestionsByCity: Record<string, string[]> = {
+  'Saint-Brieuc': ['Place du Chai', 'Port du Légué', 'La Passerelle', 'Les Rosaires'],
+  Guingamp: ['Place du Centre', 'Champ-au-Roy', 'Vallée du Trieux'],
+};
 const durationOptions = [30, 60, 120, 240];
+
+function statusTypeToLabel(statusType: string) {
+  switch (statusType) {
+    case 'bar':
+      return 'Verre / bar';
+    case 'restaurant':
+      return 'Restaurant';
+    case 'concert':
+      return 'Concert';
+    case 'club':
+      return 'Club';
+    case 'match':
+      return 'Match';
+    case 'beach':
+      return 'Plage';
+    case 'chill':
+      return 'Chill';
+    case 'other':
+      return 'Autre';
+    default:
+      return options.includes(statusType) ? statusType : 'Autre';
+  }
+}
+
+function toCitySlug(name: string) {
+  return (
+    name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'saint-brieuc'
+  );
+}
 
 export function EveningStatusScreen({
   navigation,
@@ -42,9 +85,32 @@ export function EveningStatusScreen({
     queryFn: fetchBackendStatus,
     enabled: isBackendEnabled,
   });
+  const launchAreasQuery = useQuery({
+    queryKey: ['backend-launch-areas'],
+    queryFn: fetchBackendLaunchAreas,
+    enabled: isBackendEnabled,
+    staleTime: 10 * 60_000,
+  });
+  const activeArea =
+    launchAreasQuery.data?.find((area) => area.name === city) ?? launchAreasQuery.data?.[0];
+  const citySlug = activeArea?.slug ?? toCitySlug(city);
+  const poisQuery = useQuery({
+    queryKey: ['backend-points-of-interest', citySlug],
+    queryFn: () => fetchBackendPointsOfInterest(citySlug),
+    enabled: isBackendEnabled,
+    staleTime: 5 * 60_000,
+  });
   const [selected, setSelected] = useState(outingStatus?.activityType ?? 'Verre / bar');
   const [venue, setVenue] = useState(outingStatus?.venue ?? route?.params?.venue ?? '');
   const [duration, setDuration] = useState(120);
+  const [busy, setBusy] = useState(false);
+
+  const venueSuggestions = useMemo(() => {
+    if (isBackendEnabled) {
+      return (poisQuery.data ?? []).map((poi) => poi.name).slice(0, 6);
+    }
+    return demoVenueSuggestionsByCity[city] ?? demoVenueSuggestionsByCity['Saint-Brieuc'] ?? [];
+  }, [city, poisQuery.data]);
 
   useEffect(() => {
     if (!isBackendEnabled && outingStatus && outingStatus.expiresAt <= Date.now())
@@ -53,31 +119,39 @@ export function EveningStatusScreen({
 
   useEffect(() => {
     if (!remoteStatus.data) return;
-    setVenue(remoteStatus.data.venue ?? '');
-    setSelected(
-      remoteStatus.data.status_type === 'bar' ? 'Verre / bar' : remoteStatus.data.status_type,
-    );
-  }, [remoteStatus.data]);
+    if (!route?.params?.venue) {
+      setVenue(remoteStatus.data.venue ?? '');
+    }
+    setSelected(statusTypeToLabel(remoteStatus.data.status_type));
+  }, [remoteStatus.data, route?.params?.venue]);
 
   const hasStatus = isBackendEnabled
     ? Boolean(remoteStatus.data && new Date(remoteStatus.data.expires_at).getTime() > Date.now())
     : Boolean(outingStatus && outingStatus.expiresAt > Date.now());
+
   const publish = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
+      const cleanVenue = venue.trim() || undefined;
       if (isBackendEnabled) {
         await publishBackendStatus({
           activityType: selected,
           city,
-          venue: venue || undefined,
+          venue: cleanVenue,
           durationMinutes: duration,
         });
-        await queryClient.invalidateQueries({ queryKey: ['backend-evening-status'] });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['backend-evening-status'] }),
+          queryClient.invalidateQueries({ queryKey: ['discover-profiles'] }),
+          queryClient.invalidateQueries({ queryKey: ['backend-hotspots'] }),
+        ]);
         Alert.alert('Statut publié', 'Ton intention est visible pendant la durée choisie.');
       } else {
         publishOutingStatus({
           activityType: selected,
           city,
-          venue: venue || undefined,
+          venue: cleanVenue,
           timeWindow: 'Ce soir',
           expiresAt: Date.now() + duration * 60 * 1000,
         });
@@ -88,14 +162,22 @@ export function EveningStatusScreen({
         'Publication impossible',
         error instanceof Error ? error.message : 'Réessaie dans un instant.',
       );
+    } finally {
+      setBusy(false);
     }
   };
 
   const remove = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
       if (isBackendEnabled) {
         await removeBackendStatus();
-        await queryClient.invalidateQueries({ queryKey: ['backend-evening-status'] });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['backend-evening-status'] }),
+          queryClient.invalidateQueries({ queryKey: ['discover-profiles'] }),
+          queryClient.invalidateQueries({ queryKey: ['backend-hotspots'] }),
+        ]);
       } else removeOutingStatus();
       Alert.alert('Statut retiré', 'Ton intention n’est plus visible.');
     } catch (error) {
@@ -103,23 +185,41 @@ export function EveningStatusScreen({
         'Retrait impossible',
         error instanceof Error ? error.message : 'Réessaie dans un instant.',
       );
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => goToDiscover(navigation, 'Home')}>
+        <Pressable
+          onPress={() =>
+            navigation.goBack ? navigation.goBack() : goToDiscover(navigation, 'Home')
+          }
+          accessibilityRole='button'
+          accessibilityLabel='Retour'
+        >
           <Text style={styles.back}>‹</Text>
         </Pressable>
         <View style={styles.brandHeader}>
           <BrandLogo size='small' />
-          <Text style={styles.context}>MON SOIR</Text>
+          <Text style={styles.context}>MON SOIR · {city.toUpperCase()}</Text>
         </View>
         <Text style={styles.more}>•••</Text>
       </View>
       <Text style={styles.heroTitle}>T’as quoi de prévu ce soir ?</Text>
       <Text style={styles.meta}>Partage une intention, sans GPS automatique.</Text>
+      {isBackendEnabled && remoteStatus.isError && (
+        <View style={styles.errorBanner} accessibilityRole='alert'>
+          <Text style={styles.errorBannerText}>
+            Impossible de récupérer ton statut actuel depuis le serveur.
+          </Text>
+          <Pressable onPress={() => void remoteStatus.refetch()} style={styles.retryChip}>
+            <Text style={styles.retryChipText}>Réessayer</Text>
+          </Pressable>
+        </View>
+      )}
       <Text style={styles.question}>Choisis ton plan du soir</Text>
       <View style={styles.options}>
         {options.map((option) => (
@@ -144,23 +244,25 @@ export function EveningStatusScreen({
           style={styles.venueInput}
           accessibilityLabel='Où es-tu ? lieu facultatif'
         />
-        <View style={styles.suggestions}>
-          {venueSuggestions
-            .filter((item) => !venue || item.toLowerCase().includes(venue.toLowerCase()))
-            .map((item) => (
-              <Pressable
-                key={item}
-                onPress={() => setVenue(item)}
-                style={[styles.suggestion, venue === item && styles.suggestionActive]}
-              >
-                <Text
-                  style={[styles.suggestionText, venue === item && styles.suggestionTextActive]}
+        {venueSuggestions.length > 0 && (
+          <View style={styles.suggestions}>
+            {venueSuggestions
+              .filter((item) => !venue || item.toLowerCase().includes(venue.toLowerCase()))
+              .map((item) => (
+                <Pressable
+                  key={item}
+                  onPress={() => setVenue(item)}
+                  style={[styles.suggestion, venue === item && styles.suggestionActive]}
                 >
-                  ⌖ {item}
-                </Text>
-              </Pressable>
-            ))}
-        </View>
+                  <Text
+                    style={[styles.suggestionText, venue === item && styles.suggestionTextActive]}
+                  >
+                    ⌖ {item}
+                  </Text>
+                </Pressable>
+              ))}
+          </View>
+        )}
       </View>
       <Text style={styles.durationTitle}>Visible pendant</Text>
       <View style={styles.durations}>
@@ -187,13 +289,21 @@ export function EveningStatusScreen({
           {`\n`}Tu peux modifier ou retirer ton statut à tout moment.
         </Text>
       </View>
-      <Pressable onPress={publish} style={styles.primary}>
+      <Pressable
+        disabled={busy}
+        onPress={() => void publish()}
+        style={[styles.primary, busy && styles.buttonDisabled]}
+      >
         <Text style={styles.primaryText}>
-          {hasStatus ? 'Mettre à jour mon statut' : 'Publier mon statut'}
+          {busy ? 'Enregistrement…' : hasStatus ? 'Mettre à jour mon statut' : 'Publier mon statut'}
         </Text>
       </Pressable>
       {hasStatus && (
-        <Pressable onPress={remove} style={styles.secondary}>
+        <Pressable
+          disabled={busy}
+          onPress={() => void remove()}
+          style={[styles.secondary, busy && styles.buttonDisabled]}
+        >
           <Text style={styles.secondaryText}>Retirer mon statut</Text>
         </Pressable>
       )}
@@ -212,7 +322,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     padding: spacing.lg,
     paddingTop: 28,
-    paddingBottom: 30,
+    paddingBottom: 112,
   },
   header: {
     flexDirection: 'row',
@@ -226,6 +336,28 @@ const styles = StyleSheet.create({
   more: { color: colors.mutedStrong },
   heroTitle: { color: colors.text, fontSize: 23, lineHeight: 29, fontWeight: '800', marginTop: 3 },
   meta: { color: colors.mutedStrong, fontSize: 11, marginTop: 5 },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderColor: colors.danger,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: 11,
+    marginTop: 12,
+  },
+  errorBannerText: { color: colors.text, fontSize: 11, flex: 1 },
+  retryChip: {
+    borderColor: colors.pink,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: colors.pinkWash,
+  },
+  retryChipText: { color: colors.text, fontSize: 10, fontWeight: '800' },
   question: { color: colors.text, fontSize: 18, fontWeight: '900', marginTop: 18 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 11 },
   option: {
@@ -248,7 +380,6 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   venueLabel: { color: colors.muted, fontSize: 9 },
-  venueValue: { color: colors.text, fontSize: 12, fontWeight: '800', marginTop: 5 },
   venueInput: { color: colors.text, fontSize: 13, paddingVertical: 8, marginTop: 4 },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   suggestion: {
@@ -300,5 +431,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   secondaryText: { color: colors.text, fontWeight: '700', fontSize: 12 },
+  buttonDisabled: { opacity: 0.55 },
   note: { color: colors.muted, textAlign: 'center', fontSize: 9, lineHeight: 15, marginTop: 18 },
 });

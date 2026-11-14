@@ -24,7 +24,7 @@ import {
   getEveningReminderEnabled,
   scheduleEveningReminder,
 } from '../lib/notifications';
-import { fetchBackendProfiles } from '../lib/backend';
+import { fetchBackendNotifications, fetchBackendProfiles } from '../lib/backend';
 import { demoPhotos, demoProfiles, type DemoProfile } from '../lib/demo';
 import { isBackendEnabled } from '../lib/runtime';
 import { goToDiscover, goToOutings } from '../navigation/routes';
@@ -81,9 +81,18 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
   const [shortcutGridWidth, setShortcutGridWidth] = useState(0);
   const compactTiles = shortcutGridWidth > 0 ? shortcutGridWidth < 340 : viewportWidth < 360;
   const city = useAppStore((state) => state.city);
-  const unreadNotifications = useAppStore(
+  const localUnreadNotifications = useAppStore(
     (state) => state.notifications.filter((notification) => !notification.read).length,
   );
+  const remoteNotifications = useQuery({
+    queryKey: ['backend-notifications'],
+    queryFn: fetchBackendNotifications,
+    enabled: isBackendEnabled,
+    staleTime: 30_000,
+  });
+  const unreadNotifications = isBackendEnabled
+    ? (remoteNotifications.data ?? []).filter((item) => item.read_at === null).length
+    : localUnreadNotifications;
   const pulse = useSharedValue(1);
   const [selectedFilter, setSelectedFilter] = useState<NightlifeFilter>('all');
   const [reminderEnabled, setReminderEnabled] = useState(false);
@@ -396,7 +405,18 @@ export function HomeScreen({ navigation }: { navigation: Navigation }) {
         {visibleMembers.length === 1 ? '' : 's'} volontairement
       </Text>
 
-      {featuredProfile ? (
+      {isBackendEnabled && remoteProfiles.isError && !featuredProfile ? (
+        <View style={styles.emptyState} accessibilityRole='alert'>
+          <NeonIcon name='alert-circle-outline' size={23} tone='pink' />
+          <Text style={styles.emptyTitle}>Plans indisponibles pour le moment.</Text>
+          <Text style={styles.emptyBody}>
+            Impossible de récupérer les sorties partagées depuis le serveur.
+          </Text>
+          <Pressable onPress={() => void remoteProfiles.refetch()} style={styles.retryPill}>
+            <Text style={styles.retryPillText}>Réessayer</Text>
+          </Pressable>
+        </View>
+      ) : featuredProfile ? (
         <>
           <Pressable style={styles.featureCard} onPress={() => goToDiscover(navigation)}>
             <Image source={{ uri: featuredProfile.photo }} style={styles.featureImage} />
@@ -854,6 +874,16 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { color: colors.text, fontSize: 12, fontWeight: '800', textAlign: 'center' },
   emptyBody: { color: colors.muted, fontSize: 10, lineHeight: 14, textAlign: 'center' },
+  retryPill: {
+    marginTop: 4,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.pink,
+    backgroundColor: colors.pinkWash,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  retryPillText: { color: colors.text, fontSize: 11, fontWeight: '900' },
   waitlistCard: {
     flexDirection: 'row',
     alignItems: 'center',

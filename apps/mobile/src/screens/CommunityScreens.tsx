@@ -13,13 +13,16 @@ import { useQuery } from '@tanstack/react-query';
 import { BrandLogo } from '../components/BrandLogo';
 import { demoPhotos, demoProfiles } from '../lib/demo';
 import {
-  fetchRennesWaitlistStatus,
   fetchBackendEntitlements,
+  fetchBackendLaunchAreas,
+  fetchBackendPointsOfInterest,
+  fetchBackendProfiles,
+  fetchRennesWaitlistStatus,
   joinRennesWaitlist,
   type RennesWaitlistStatus,
 } from '../lib/backend';
 import { isBackendEnabled } from '../lib/runtime';
-import { goToDiscover, goToMessages, goToOutings, goToShop } from '../navigation/routes';
+import { goToDiscover, goToOutings, goToShop } from '../navigation/routes';
 import { useAppStore } from '../state/useAppStore';
 import { colors, glow, radius, spacing } from '../theme';
 
@@ -29,129 +32,44 @@ type Navigation = {
 };
 type VenueRoute = { params?: { venue?: string; count?: number; kind?: string } };
 
-const cityFriends = [
-  {
-    id: 'thomas',
-    name: 'Thomas',
-    age: 26,
-    status: 'En soirée au Liberté',
-    time: 'expire dans 1 h 12',
-    photo: demoPhotos.alex,
-    online: true,
-  },
-  {
-    id: 'julie',
-    name: 'Julie',
-    age: 24,
-    status: 'En ligne',
-    time: 'active maintenant',
-    photo: demoPhotos.manon,
-    online: true,
-  },
-  {
-    id: 'ines',
-    name: 'Inès',
-    age: 25,
-    status: 'Concert · Le MeM',
-    time: 'expire dans 48 min',
-    photo: demoPhotos.lea,
-    online: false,
-  },
-];
-const requests = [
-  {
-    id: 'camille',
-    name: 'Camille',
-    age: 23,
-    photo: demoPhotos.manon,
-    note: 'Vous avez 3 amis en commun',
-  },
-  {
-    id: 'hugo',
-    name: 'Hugo',
-    age: 27,
-    photo: demoPhotos.alex,
-    note: 'Vous sortez souvent dans le centre',
-  },
-];
+function toCitySlug(name: string) {
+  return (
+    name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'saint-brieuc'
+  );
+}
 
 export function FriendsScreen({ navigation }: { navigation: Navigation }) {
-  const [tab, setTab] = useState<'Amis' | 'Demandes'>('Amis');
-  const [accepted, setAccepted] = useState<string[]>([]);
   return (
     <ScrollView contentContainerStyle={styles.page}>
-      <Header eyebrow='TON CERCLE' />
-      <Text style={styles.title}>Les amis, en mieux.</Text>
-      <Text style={styles.sub}>Retrouve tes proches sans partager ta position GPS.</Text>
-      <View style={styles.segment}>
-        {(['Amis', 'Demandes'] as const).map((item) => (
-          <Pressable
-            key={item}
-            onPress={() => setTab(item)}
-            style={[styles.segmentItem, tab === item && styles.segmentActive]}
-          >
-            <Text style={[styles.segmentText, tab === item && styles.segmentTextActive]}>
-              {item}
-              {item === 'Demandes' ? '  2' : '  8'}
-            </Text>
-          </Pressable>
-        ))}
+      <Header eyebrow='AMIS · BIENTÔT' />
+      <View style={styles.soonBadge}>
+        <Text style={styles.soonBadgeText}>BIENTÔT DISPONIBLE</Text>
       </View>
-      {tab === 'Amis' ? (
-        <>
-          <Text style={styles.section}>Actifs ce soir</Text>
-          {cityFriends.map((friend) => (
-            <View key={friend.id} style={styles.friendRow}>
-              <View style={styles.avatarWrap}>
-                <Image source={{ uri: friend.photo }} style={styles.avatar} />
-                <View style={[styles.presence, !friend.online && styles.presenceOff]} />
-              </View>
-              <View style={styles.grow}>
-                <Text style={styles.name}>
-                  {friend.name}, {friend.age}
-                </Text>
-                <Text style={styles.copy}>{friend.status}</Text>
-                <Text style={styles.caption}>{friend.time}</Text>
-              </View>
-              <Pressable onPress={() => goToMessages(navigation)} style={styles.smallButton}>
-                <Text style={styles.smallButtonText}>Écrire</Text>
-              </Pressable>
-            </View>
-          ))}
-          <View style={styles.privacy}>
-            <Text style={styles.privacyText}>
-              ⌖ Les lieux affichés viennent uniquement des statuts partagés volontairement.
-            </Text>
-          </View>
-        </>
-      ) : (
-        <>
-          <Text style={styles.section}>Nouvelles demandes</Text>
-          {requests.map((person) => (
-            <View key={person.id} style={styles.friendRow}>
-              <Image source={{ uri: person.photo }} style={styles.avatar} />
-              <View style={styles.grow}>
-                <Text style={styles.name}>
-                  {person.name}, {person.age}
-                </Text>
-                <Text style={styles.copy}>{person.note}</Text>
-              </View>
-              {accepted.includes(person.id) ? (
-                <Text style={styles.accepted}>Ajouté ✓</Text>
-              ) : (
-                <Pressable
-                  onPress={() => setAccepted((values) => [...values, person.id])}
-                  style={styles.smallButton}
-                >
-                  <Text style={styles.smallButtonText}>Accepter</Text>
-                </Pressable>
-              )}
-            </View>
-          ))}
-        </>
-      )}
+      <Text style={styles.title}>Tes amis dans TÉCAP, sans suivi GPS.</Text>
+      <Text style={styles.sub}>
+        Le cercle d’amis arrive prochainement pour retrouver tes proches qui choisissent de partager
+        leur sortie du soir.
+      </Text>
+      <View style={styles.detailsCard}>
+        <Text style={styles.section}>En attendant</Text>
+        <Text style={styles.copy}>
+          Tu peux déjà publier ton intention de sortie, découvrir qui sort autour de toi et échanger
+          après un match.
+        </Text>
+      </View>
+      <Pressable
+        onPress={() => goToOutings(navigation, 'EveningStatus')}
+        style={[styles.primaryButton, glow.pink]}
+      >
+        <Text style={styles.primaryButtonText}>Publier mon plan ce soir</Text>
+      </Pressable>
       <Pressable onPress={() => goToDiscover(navigation)} style={styles.outlineButton}>
-        <Text style={styles.outlineText}>＋ Inviter des amis</Text>
+        <Text style={styles.outlineText}>Découvrir des profils</Text>
       </Pressable>
     </ScrollView>
   );
@@ -164,53 +82,113 @@ export function VenueDetailScreen({
   navigation: Navigation;
   route?: VenueRoute;
 }) {
-  const venue = route?.params?.venue ?? 'L’Apsara';
-  const count = route?.params?.count ?? 124;
-  const type = route?.params?.kind ?? 'Bar · Club';
-  const people = useMemo(() => demoProfiles.slice(0, 5), []);
+  const city = useAppStore((state) => state.city);
+  const launchAreasQuery = useQuery({
+    queryKey: ['backend-launch-areas'],
+    queryFn: fetchBackendLaunchAreas,
+    enabled: isBackendEnabled,
+    staleTime: 10 * 60_000,
+  });
+  const activeArea =
+    launchAreasQuery.data?.find((area) => area.name === city) ?? launchAreasQuery.data?.[0];
+  const citySlug = activeArea?.slug ?? toCitySlug(city);
+  const poisQuery = useQuery({
+    queryKey: ['backend-points-of-interest', citySlug],
+    queryFn: () => fetchBackendPointsOfInterest(citySlug),
+    enabled: isBackendEnabled,
+    staleTime: 5 * 60_000,
+  });
+  const remoteProfiles = useQuery({
+    queryKey: ['discover-profiles', isBackendEnabled],
+    queryFn: () => fetchBackendProfiles(),
+    enabled: isBackendEnabled,
+  });
+
+  const venue = route?.params?.venue ?? (isBackendEnabled ? 'Lieu du soir' : 'Place du Chai');
+  const matchingPoi = useMemo(
+    () =>
+      (poisQuery.data ?? []).find(
+        (poi) => poi.name.trim().toLowerCase() === venue.trim().toLowerCase(),
+      ),
+    [poisQuery.data, venue],
+  );
+  const people = useMemo(() => {
+    const source = isBackendEnabled ? (remoteProfiles.data ?? []) : demoProfiles;
+    const atVenue = source.filter(
+      (person) =>
+        person.status &&
+        person.venue &&
+        person.venue.trim().toLowerCase() === venue.trim().toLowerCase(),
+    );
+    return atVenue.length > 0 || isBackendEnabled ? atVenue : demoProfiles.slice(0, 4);
+  }, [remoteProfiles.data, venue]);
+
+  const count = route?.params?.count ?? matchingPoi?.participant_count ?? people.length;
+  const type = route?.params?.kind ?? matchingPoi?.subtitle ?? 'Lieu partagé';
+
   return (
     <ScrollView contentContainerStyle={styles.page}>
-      <Header eyebrow='FICHE LIEU' />
+      <Header eyebrow={isBackendEnabled ? 'FICHE LIEU' : 'FICHE LIEU · DÉMO'} />
       <View style={styles.venueHero}>
         <Image source={{ uri: demoPhotos.night }} style={StyleSheet.absoluteFillObject} />
         <View style={styles.venueShade} />
-        <Text style={styles.heroEyebrow}>✦ RENNES · {type.toUpperCase()}</Text>
+        <Text style={styles.heroEyebrow}>
+          ✦ {city.toLocaleUpperCase('fr-FR')} · {type.toLocaleUpperCase('fr-FR')}
+        </Text>
         <Text style={styles.heroTitle}>{venue}</Text>
-        <Text style={styles.heroMeta}>⌖ Centre-ville · Rennes</Text>
+        <Text style={styles.heroMeta}>⌖ {city}</Text>
       </View>
       <View style={styles.attendanceCard}>
         <Text style={styles.attendanceNumber}>{count}</Text>
         <View style={styles.grow}>
-          <Text style={styles.name}>personnes y sont</Text>
+          <Text style={styles.name}>
+            personne{count > 1 ? 's' : ''} y {count > 1 ? 'sont' : 'est'}
+          </Text>
           <Text style={styles.copy}>Statuts partagés volontairement ce soir</Text>
         </View>
-        <Text style={styles.liveDot}>● LIVE</Text>
+        <Text style={styles.liveDot}>● CE SOIR</Text>
       </View>
       <View style={styles.detailsCard}>
         <Text style={styles.section}>À propos</Text>
-        <Text style={styles.copy}>Bar · Club · Cocktails et DJ sets au cœur de Rennes.</Text>
-        <Text style={styles.copy}>⌖ 1 rue Saint-Michel, Rennes</Text>
-        <Text style={styles.copy}>◷ Ouvert ce soir · jusqu’à 2 h</Text>
+        <Text style={styles.copy}>
+          {matchingPoi?.description ??
+            `Lieu partagé par des membres dans ${city}. Aucune position GPS automatique.`}
+        </Text>
+        {matchingPoi?.starts_at && <Text style={styles.copy}>◷ {matchingPoi.starts_at}</Text>}
       </View>
       <View style={styles.sectionRow}>
         <Text style={styles.section}>Qui est de sortie ?</Text>
         <Text style={styles.caption}>Aperçu public · 18+</Text>
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.peopleRow}
-      >
-        {people.map((person) => (
-          <View key={person.id} style={styles.personCard}>
-            <Image source={{ uri: person.photo }} style={styles.personPhoto} />
-            <Text style={styles.personName}>
-              {person.name}, {person.age}
-            </Text>
-            <Text style={styles.personStatus}>● À {venue}</Text>
-          </View>
-        ))}
-      </ScrollView>
+      {people.length ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.peopleRow}
+        >
+          {people.map((person) => (
+            <Pressable
+              key={person.id}
+              onPress={() => goToDiscover(navigation, 'ProfileDetail', { profileId: person.id })}
+              style={styles.personCard}
+            >
+              <Image source={{ uri: person.photo }} style={styles.personPhoto} />
+              <Text style={styles.personName}>
+                {person.name}, {person.age}
+              </Text>
+              <Text style={styles.personStatus} numberOfLines={1}>
+                ● {person.status ?? venue}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : (
+        <View style={styles.detailsCard}>
+          <Text style={styles.copy}>
+            Aucun profil public n’a encore partagé ce lieu pour ce soir.
+          </Text>
+        </View>
+      )}
       <Pressable
         onPress={() => navigation.navigate('EveningStatus', { venue })}
         style={[styles.primaryButton, glow.pink]}
@@ -225,136 +203,33 @@ export function VenueDetailScreen({
 }
 
 export function CrewScreen({ navigation }: { navigation: Navigation }) {
-  const [tab, setTab] = useState<'Soirées' | 'Mes crews'>('Soirées');
-  const [creating, setCreating] = useState(false);
-  const [title, setTitle] = useState('');
-  const [created, setCreated] = useState<string[]>([]);
   return (
     <ScrollView contentContainerStyle={styles.page}>
-      <Header eyebrow='TÉCAP CREW' />
-      <Text style={styles.title}>Les meilleures soirées, à plusieurs.</Text>
-      <Text style={styles.sub}>
-        Monte ton plan, invite ton crew et retrouve les autres en ville.
-      </Text>
-      <View style={styles.segment}>
-        {(['Soirées', 'Mes crews'] as const).map((item) => (
-          <Pressable
-            key={item}
-            onPress={() => setTab(item)}
-            style={[styles.segmentItem, tab === item && styles.segmentActive]}
-          >
-            <Text style={[styles.segmentText, tab === item && styles.segmentTextActive]}>
-              {item}
-            </Text>
-          </Pressable>
-        ))}
+      <Header eyebrow='TÉCAP CREW · BIENTÔT' />
+      <View style={styles.soonBadge}>
+        <Text style={styles.soonBadgeText}>BIENTÔT DISPONIBLE</Text>
       </View>
-      {tab === 'Soirées' ? (
-        <>
-          <Pressable
-            onPress={() => setCreating((value) => !value)}
-            style={[styles.createCard, glow.gold]}
-          >
-            <Text style={styles.createIcon}>＋</Text>
-            <View style={styles.grow}>
-              <Text style={styles.name}>Créer une soirée</Text>
-              <Text style={styles.copy}>Titre · lieu · heure · invitation</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </Pressable>
-          {creating && (
-            <View style={styles.formCard}>
-              <TextInput
-                value={title}
-                onChangeText={setTitle}
-                placeholder='Ex. Apéro entre Rennais·es'
-                placeholderTextColor={colors.muted}
-                style={styles.input}
-              />
-              <View style={styles.formRow}>
-                <Text style={styles.formHint}>⌖ L’Apsara · ce soir · 21 h</Text>
-                <Pressable
-                  onPress={() => {
-                    const clean = title.trim();
-                    if (!clean) {
-                      Alert.alert('Ajoute un titre', 'Donne un nom à ta soirée.');
-                      return;
-                    }
-                    setCreated((items) => [clean, ...items]);
-                    setTitle('');
-                    setCreating(false);
-                  }}
-                  style={styles.smallButton}
-                >
-                  <Text style={styles.smallButtonText}>Créer</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-          {created.map((item, index) => (
-            <OutingCard
-              key={`${item}-${index}`}
-              title={item}
-              meta='L’Apsara · Ce soir · toi + ton crew'
-            />
-          ))}
-          <OutingCard
-            title='Un verre, puis on voit'
-            meta='Le Connétable · Ce soir · 12 personnes'
-          />
-          <OutingCard title='Concert au Liberté' meta='Le Liberté · 21 h · 8 personnes' />
-          <OutingCard title='Brunch de dimanche' meta='Centre-ville · Dimanche · 6 personnes' />
-        </>
-      ) : (
-        <>
-          <Text style={styles.section}>Tes crews</Text>
-          {['Les Rennais·es 🌙', 'Team concert 🎶', 'Potes du campus ✨'].map((name, index) => (
-            <View key={name} style={styles.friendRow}>
-              <View style={[styles.crewBadge, index === 1 && styles.crewBadgeGold]}>
-                <Text style={styles.crewBadgeText}>{['R', '♪', '✦'][index]}</Text>
-              </View>
-              <View style={styles.grow}>
-                <Text style={styles.name}>{name}</Text>
-                <Text style={styles.copy}>
-                  {[8, 5, 11][index]} membres ·{' '}
-                  {index === 0 ? '3 actifs ce soir' : 'dernière sortie cette semaine'}
-                </Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </View>
-          ))}
-          <Pressable
-            onPress={() =>
-              Alert.alert('Nouveau crew', 'Invitation TÉCAP prête à partager avec tes amis.')
-            }
-            style={styles.outlineButton}
-          >
-            <Text style={styles.outlineText}>＋ Créer un crew</Text>
-          </Pressable>
-        </>
-      )}
+      <Text style={styles.title}>Les sorties en groupe arrivent bientôt.</Text>
+      <Text style={styles.sub}>
+        Tu pourras bientôt monter un crew et proposer une sortie à plusieurs depuis cette section.
+      </Text>
+      <View style={styles.detailsCard}>
+        <Text style={styles.section}>Disponible dès maintenant</Text>
+        <Text style={styles.copy}>
+          Consulte la carte du soir, partage ton statut « Entre amis » et découvre les personnes qui
+          sortent dans ta ville.
+        </Text>
+      </View>
+      <Pressable
+        onPress={() => goToOutings(navigation, 'Map')}
+        style={[styles.primaryButton, glow.pink]}
+      >
+        <Text style={styles.primaryButtonText}>Ouvrir la carte du soir</Text>
+      </Pressable>
       <Pressable onPress={() => goToOutings(navigation)} style={styles.textButton}>
-        <Text style={styles.textButtonLabel}>Voir toutes les sorties de Rennes ↗</Text>
+        <Text style={styles.textButtonLabel}>Retour à Qui sort ce soir ? ›</Text>
       </Pressable>
     </ScrollView>
-  );
-}
-
-function OutingCard({ title, meta }: { title: string; meta: string }) {
-  const [joined, setJoined] = useState(false);
-  return (
-    <View style={styles.outingCard}>
-      <View style={styles.outingAccent}>
-        <Text style={styles.outingEmoji}>🌙</Text>
-      </View>
-      <View style={styles.grow}>
-        <Text style={styles.name}>{title}</Text>
-        <Text style={styles.copy}>{meta}</Text>
-      </View>
-      <Pressable onPress={() => setJoined((value) => !value)} style={styles.smallButton}>
-        <Text style={styles.smallButtonText}>{joined ? '✓ J’y vais' : 'Rejoindre'}</Text>
-      </Pressable>
-    </View>
   );
 }
 
@@ -367,13 +242,52 @@ export function WhoLikedMeScreen({ navigation }: { navigation: Navigation }) {
     enabled: isBackendEnabled,
   });
   const premium = isBackendEnabled ? Boolean(entitlements.data?.premium) : localPremium;
+
+  if (isBackendEnabled) {
+    return (
+      <ScrollView contentContainerStyle={styles.page}>
+        <Header eyebrow='TES ADMIRATEURS' />
+        <View style={styles.soonBadge}>
+          <Text style={styles.soonBadgeText}>BIENTÔT DISPONIBLE</Text>
+        </View>
+        <Text style={styles.title}>
+          Découvre tes likes <Text style={styles.goldTitle}>dès l’ouverture de la vue.</Text>
+        </Text>
+        <Text style={styles.sub}>
+          La liste dédiée des likes reçus arrive prochainement. En attendant, chaque like réciproque
+          dans Découvrir crée immédiatement un match.
+        </Text>
+        <View style={styles.detailsCard}>
+          <Text style={styles.section}>
+            {premium ? 'Ton accès Premium est actif' : 'Découvrir ou passer Premium'}
+          </Text>
+          <Text style={styles.copy}>
+            {premium
+              ? 'Tu bénéficies déjà des likes illimités dans Découvrir.'
+              : 'Passe en Premium dans la Boutique pour profiter des likes illimités et des avantages à venir.'}
+          </Text>
+          <Pressable
+            onPress={() => (premium ? goToDiscover(navigation) : goToShop(navigation))}
+            style={[styles.primaryButton, styles.goldButton, glow.gold]}
+          >
+            <Text style={styles.primaryButtonText}>
+              {premium ? 'Ouvrir Découvrir' : 'Voir la Boutique Premium'}
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    );
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.page}>
-      <Header eyebrow='TES ADMIRATEURS' />
+      <Header eyebrow='TES ADMIRATEURS · DÉMO' />
       <Text style={styles.title}>
-        Tu as <Text style={styles.goldTitle}>38 likes.</Text>
+        Aperçu <Text style={styles.goldTitle}>Likes · Démo</Text>
       </Text>
-      <Text style={styles.sub}>Des personnes qui ont déjà envie de te découvrir.</Text>
+      <Text style={styles.sub}>
+        Des personnes qui ont déjà envie de te découvrir (aperçu démo).
+      </Text>
       <View style={styles.likesGrid}>
         {demoProfiles.slice(0, 6).map((profile, index) => (
           <Pressable
@@ -393,7 +307,7 @@ export function WhoLikedMeScreen({ navigation }: { navigation: Navigation }) {
       </View>
       <View style={styles.detailsCard}>
         <Text style={styles.section}>
-          {premium ? 'Tes likes t’attendent' : 'Débloque tes 38 likes'}
+          {premium ? 'Tes likes t’attendent' : 'Débloque tes likes en mode démo'}
         </Text>
         <Text style={styles.copy}>
           {premium
@@ -412,7 +326,7 @@ export function WhoLikedMeScreen({ navigation }: { navigation: Navigation }) {
       {selected && (
         <View style={styles.privacy}>
           <Text style={styles.privacyText}>
-            ✨ Tu es dans le top des likes ce soir. Ouvre Découvrir pour les retrouver.
+            ✨ Mode démo : ouvre Découvrir pour retrouver ces profils.
           </Text>
         </View>
       )}
@@ -593,7 +507,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     padding: spacing.lg,
     paddingTop: 27,
-    paddingBottom: 34,
+    paddingBottom: 112,
   },
   header: {
     flexDirection: 'row',
@@ -602,61 +516,25 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   headerEyebrow: { color: colors.gold, fontSize: 8, letterSpacing: 1.1, fontWeight: '900' },
+  soonBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.goldSoft,
+    backgroundColor: colors.goldWash,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 8,
+  },
+  soonBadgeText: { color: colors.goldLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   title: { color: colors.text, fontSize: 27, lineHeight: 33, fontWeight: '900', marginTop: 8 },
   goldTitle: { color: colors.gold },
   sub: { color: colors.mutedStrong, fontSize: 12, lineHeight: 18, marginTop: 7, marginBottom: 18 },
   section: { color: colors.text, fontSize: 15, fontWeight: '900', marginBottom: 11 },
-  segment: {
-    flexDirection: 'row',
-    gap: 8,
-    padding: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    marginBottom: 16,
-  },
-  segmentItem: { flex: 1, paddingVertical: 10, borderRadius: radius.pill, alignItems: 'center' },
-  segmentActive: { backgroundColor: colors.pinkWash, borderColor: colors.hotPink, borderWidth: 1 },
-  segmentText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
-  segmentTextActive: { color: colors.text, fontWeight: '900' },
-  friendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    padding: 11,
-    marginBottom: 9,
-  },
-  avatarWrap: { position: 'relative' },
-  avatar: { width: 47, height: 47, borderRadius: 24, borderWidth: 1, borderColor: colors.pink },
-  presence: {
-    position: 'absolute',
-    right: 0,
-    bottom: 1,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.green,
-    borderWidth: 2,
-    borderColor: colors.surface,
-  },
-  presenceOff: { backgroundColor: colors.muted },
   grow: { flex: 1 },
   name: { color: colors.text, fontSize: 12, fontWeight: '900' },
   copy: { color: colors.mutedStrong, fontSize: 10, lineHeight: 15, marginTop: 4 },
   caption: { color: colors.muted, fontSize: 8, marginTop: 4 },
-  smallButton: {
-    backgroundColor: colors.pinkWash,
-    borderColor: colors.hotPink,
-    borderWidth: 1,
-    borderRadius: radius.pill,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-  },
-  smallButtonText: { color: colors.pinkLight, fontSize: 9, fontWeight: '900' },
-  accepted: { color: colors.green, fontSize: 10, fontWeight: '800' },
   privacy: {
     backgroundColor: colors.surface,
     borderColor: colors.goldSoft,
@@ -736,24 +614,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 14,
   },
-  primaryButtonOn: { backgroundColor: colors.green },
   primaryButtonText: { color: '#180914', fontSize: 12, fontWeight: '900' },
   goldButton: { backgroundColor: colors.gold },
   textButton: { alignItems: 'center', padding: 13, marginTop: 4 },
   textButtonLabel: { color: colors.mutedStrong, fontSize: 10, fontWeight: '700' },
-  createCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-    backgroundColor: colors.goldWash,
-    borderColor: colors.goldHot,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: 14,
-    marginBottom: 12,
-  },
-  createIcon: { color: colors.gold, fontSize: 24, fontWeight: '700' },
-  chevron: { color: colors.gold, fontSize: 23 },
   formCard: {
     backgroundColor: colors.surface,
     borderColor: colors.line,
@@ -761,6 +625,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: 13,
     marginBottom: 12,
+    marginTop: 13,
   },
   input: {
     backgroundColor: colors.canvas,
@@ -772,43 +637,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 11,
   },
-  formRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 9,
-  },
-  formHint: { color: colors.mutedStrong, fontSize: 9 },
-  outingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: colors.surface,
-    borderColor: colors.line,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: 11,
-    marginBottom: 9,
-  },
-  outingAccent: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    backgroundColor: colors.pinkWash,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  outingEmoji: { fontSize: 17 },
-  crewBadge: {
-    width: 42,
-    height: 42,
-    borderRadius: 15,
-    backgroundColor: colors.pinkWash,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  crewBadgeGold: { backgroundColor: colors.goldWash },
-  crewBadgeText: { color: colors.gold, fontSize: 17, fontWeight: '900' },
   likesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 12 },
   likeTile: {
     width: '31.5%',

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -27,6 +28,7 @@ type Route = { params?: { matchId?: string } };
 export function ChatScreen({ navigation, route }: { navigation: Navigation; route?: Route }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const scrollRef = useRef<ScrollView | null>(null);
   const matches = useAppStore((state) => state.matches);
   const messages = useAppStore((state) => state.messages);
   const requests = useAppStore((state) => state.catchRequests);
@@ -46,6 +48,11 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
   });
   const displayProfile = isBackendEnabled ? remoteConversation.data?.profile : profile;
 
+  const handleBack = () => {
+    if (navigation.goBack) navigation.goBack();
+    else navigation.navigate('MessagesHome');
+  };
+
   useEffect(() => {
     if (selectedMatch && !isBackendEnabled) markMatchRead(selectedMatch.id);
   }, [markMatchRead, selectedMatch]);
@@ -57,7 +64,11 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages', filter: `match_id=eq.${matchId}` },
-        () => void queryClient.invalidateQueries({ queryKey: ['backend-conversation', matchId] }),
+        () => {
+          void queryClient.invalidateQueries({ queryKey: ['backend-conversation', matchId] });
+          void queryClient.invalidateQueries({ queryKey: ['backend-matches'] });
+          void queryClient.invalidateQueries({ queryKey: ['backend-unread-message-count'] });
+        },
       )
       .subscribe();
     return () => {
@@ -65,10 +76,73 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
     };
   }, [matchId, queryClient]);
 
-  if (
-    (!isBackendEnabled && (!selectedMatch || !profile)) ||
-    (isBackendEnabled && remoteConversation.isLoading)
-  ) {
+  if (isBackendEnabled && !matchId) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.listHeader}>
+          <Pressable onPress={handleBack} accessibilityRole='button'>
+            <Text style={styles.back}>‹</Text>
+          </Pressable>
+          <BrandLogo size='medium' showTagline />
+          <Text style={styles.more}>♢</Text>
+        </View>
+        <View style={styles.empty}>
+          <Text style={styles.emptyIcon}>♡</Text>
+          <Text style={styles.emptyTitle}>Aucune conversation sélectionnée</Text>
+          <Text style={styles.emptyBody}>Choisis un match depuis la liste de tes messages.</Text>
+          <Pressable onPress={() => navigation.navigate('MessagesHome')} style={styles.primary}>
+            <Text style={styles.primaryText}>Voir mes messages</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (isBackendEnabled && remoteConversation.isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.listHeader}>
+          <Pressable onPress={handleBack} accessibilityRole='button'>
+            <Text style={styles.back}>‹</Text>
+          </Pressable>
+          <BrandLogo size='medium' showTagline />
+          <Text style={styles.more}>♢</Text>
+        </View>
+        <View style={styles.empty}>
+          <ActivityIndicator size='large' color={colors.pink} />
+          <Text style={styles.emptyTitle}>Chargement de la conversation…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (isBackendEnabled && remoteConversation.isError) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.listHeader}>
+          <Pressable onPress={handleBack} accessibilityRole='button'>
+            <Text style={styles.back}>‹</Text>
+          </Pressable>
+          <BrandLogo size='medium' showTagline />
+          <Text style={styles.more}>♢</Text>
+        </View>
+        <View style={styles.empty} accessibilityRole='alert'>
+          <Text style={styles.emptyIcon}>!</Text>
+          <Text style={styles.emptyTitle}>Conversation indisponible</Text>
+          <Text style={styles.emptyBody}>
+            {remoteConversation.error instanceof Error
+              ? remoteConversation.error.message
+              : 'Impossible de charger les messages.'}
+          </Text>
+          <Pressable onPress={() => void remoteConversation.refetch()} style={styles.primary}>
+            <Text style={styles.primaryText}>Réessayer</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (!isBackendEnabled && (!selectedMatch || !profile)) {
     return (
       <View style={styles.container}>
         <View style={styles.listHeader}>
@@ -99,9 +173,12 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
         sender: message.senderId === displayProfile.id ? ('them' as const) : ('me' as const),
       }))
     : messages.filter((message) => message.matchId === selectedMatch!.id);
-  const pendingRequest = requests.find(
-    (request) => request.matchId === selectedMatch!.id && request.status === 'pending',
-  );
+  const pendingRequest =
+    !isBackendEnabled && selectedMatch
+      ? requests.find(
+          (request) => request.matchId === selectedMatch.id && request.status === 'pending',
+        )
+      : undefined;
 
   const send = async () => {
     const content = text.trim();
@@ -111,7 +188,11 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
       try {
         await sendBackendMessage(matchId!, content);
         setText('');
-        await queryClient.invalidateQueries({ queryKey: ['backend-conversation', matchId] });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['backend-conversation', matchId] }),
+          queryClient.invalidateQueries({ queryKey: ['backend-matches'] }),
+          queryClient.invalidateQueries({ queryKey: ['backend-unread-message-count'] }),
+        ]);
       } catch (error) {
         Alert.alert(
           'Message non envoyé',
@@ -143,7 +224,7 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
     >
       <View style={styles.container}>
         <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack?.()} accessibilityRole='button'>
+          <Pressable onPress={handleBack} accessibilityRole='button'>
             <Text style={styles.back}>‹</Text>
           </Pressable>
           <Image source={{ uri: displayProfile.photo }} style={styles.headerAvatar} />
@@ -156,14 +237,22 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
               {isBackendEnabled
                 ? displayProfile.venue
                   ? `Plan partagé · ${displayProfile.venue}`
-                  : 'Aucun lieu partagé'
+                  : displayProfile.city
                 : 'Mode démo · conversation simulée'}
             </Text>
           </View>
           <Text style={styles.more}>•••</Text>
         </View>
         <Pressable
-          onPress={() => goToDiscover(navigation, 'Invitation')}
+          onPress={() =>
+            goToDiscover(navigation, 'Invitation', {
+              matchId: isBackendEnabled ? matchId : selectedMatch?.id,
+              profileId: displayProfile.id,
+              profileName: displayProfile.name,
+              profilePhoto: displayProfile.photo,
+              venue: displayProfile.venue,
+            })
+          }
           style={styles.catchCard}
           accessibilityRole='button'
         >
@@ -176,7 +265,12 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
           </View>
           <Text style={styles.catchArrow}>›</Text>
         </Pressable>
-        <ScrollView contentContainerStyle={styles.messages} keyboardShouldPersistTaps='handled'>
+        <ScrollView
+          ref={scrollRef}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+          contentContainerStyle={styles.messages}
+          keyboardShouldPersistTaps='handled'
+        >
           <View style={styles.matchBanner}>
             <Text style={styles.matchIcon}>♡</Text>
             <View>
@@ -216,7 +310,7 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
           <TextInput
             value={text}
             onChangeText={setText}
-            onSubmitEditing={send}
+            onSubmitEditing={() => void send()}
             editable={!sending}
             placeholder='Écris un message…'
             placeholderTextColor={colors.muted}
@@ -225,7 +319,7 @@ export function ChatScreen({ navigation, route }: { navigation: Navigation; rout
           />
           <Pressable
             disabled={sending || !text.trim()}
-            onPress={send}
+            onPress={() => void send()}
             style={[styles.send, (!text.trim() || sending) && styles.sendDisabled]}
           >
             <Text style={styles.sendText}>➤</Text>

@@ -15,7 +15,8 @@ import {
 } from '../lib/backend';
 import { demoPois, categoryLabels, SAINT_BRIEUC_CENTER, type TecapPoi } from '../lib/mapData';
 import { isBackendEnabled } from '../lib/runtime';
-import { requestApproximateLocation, simulatedSaintBrieucLocation } from '../lib/geolocation';
+import { requestApproximateLocation } from '../lib/geolocation';
+import { goToDiscover } from '../navigation/routes';
 import { useAppStore } from '../state/useAppStore';
 import { supabase } from '../lib/supabase';
 import { colors, glow, radius, spacing } from '../theme';
@@ -39,8 +40,20 @@ function matchesFilter(poi: TecapPoi, filter: Filter) {
   return poi.category === filter;
 }
 
+function toCitySlug(name: string) {
+  return (
+    name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'saint-brieuc'
+  );
+}
+
 function backendPoiToTecap(
   poi: NonNullable<Awaited<ReturnType<typeof fetchBackendPointsOfInterest>>[number]>,
+  cityNameBySlug: Map<string, string>,
 ): TecapPoi {
   return {
     id: poi.id,
@@ -50,7 +63,9 @@ function backendPoiToTecap(
     description: poi.description,
     latitude: Number(poi.latitude),
     longitude: Number(poi.longitude),
-    city: poi.city_slug === 'saint-brieuc' ? 'Saint-Brieuc' : poi.city_slug,
+    city:
+      cityNameBySlug.get(poi.city_slug) ??
+      (poi.city_slug === 'saint-brieuc' ? 'Saint-Brieuc' : poi.city_slug),
     citySlug: poi.city_slug,
     participantCount: poi.participant_count,
     accent: poi.accent,
@@ -85,7 +100,11 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
   });
   const activeArea =
     launchAreasQuery.data?.find((area) => area.name === city) ?? launchAreasQuery.data?.[0];
-  const citySlug = activeArea?.slug ?? 'saint-brieuc';
+  const citySlug = activeArea?.slug ?? toCitySlug(city);
+  const cityNameBySlug = useMemo(
+    () => new Map((launchAreasQuery.data ?? []).map((area) => [area.slug, area.name])),
+    [launchAreasQuery.data],
+  );
   const poisQuery = useQuery({
     queryKey: ['backend-points-of-interest', citySlug],
     queryFn: () => fetchBackendPointsOfInterest(citySlug),
@@ -102,20 +121,27 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
-  const backendPois = useMemo(
-    () => (poisQuery.data ?? []).map(backendPoiToTecap),
-    [poisQuery.data],
+  const mapCenter = useMemo(
+    () =>
+      activeArea
+        ? { latitude: Number(activeArea.center_lat), longitude: Number(activeArea.center_lng) }
+        : SAINT_BRIEUC_CENTER,
+    [activeArea],
   );
-  const fallbackPois = useMemo(() => {
-    if (!isBackendEnabled) return demoPois;
-    const hotspotPois = (hotspotsQuery.data ?? []).map((hotspot, index): TecapPoi => ({
+  const backendPois = useMemo(
+    () => (poisQuery.data ?? []).map((poi) => backendPoiToTecap(poi, cityNameBySlug)),
+    [poisQuery.data, cityNameBySlug],
+  );
+  const hotspotPois = useMemo(() => {
+    if (!isBackendEnabled) return [];
+    return (hotspotsQuery.data ?? []).map((hotspot, index): TecapPoi => ({
       id: `backend-hotspot-${hotspot.venue}-${hotspot.activityType}`,
       category: 'hotspot',
       name: hotspot.venue,
       subtitle: `${hotspot.memberCount} personnes · ${hotspot.activityType}`,
       description: 'Zone agrégée issue des statuts publics expirant ce soir.',
-      latitude: SAINT_BRIEUC_CENTER.latitude + ((index % 3) - 1) * 0.003,
-      longitude: SAINT_BRIEUC_CENTER.longitude + ((index % 3) - 1) * 0.004,
+      latitude: mapCenter.latitude + ((index % 3) - 1) * 0.003,
+      longitude: mapCenter.longitude + ((index % 3) - 1) * 0.004,
       city,
       citySlug,
       participantCount: hotspot.memberCount,
@@ -123,12 +149,16 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
       icon: '◎',
       action: 'outings',
     }));
-    return hotspotPois;
-  }, [city, citySlug, hotspotsQuery.data]);
-  const allPois = useMemo(
-    () => (backendPois.length > 0 ? backendPois : fallbackPois),
-    [backendPois, fallbackPois],
-  );
+  }, [city, citySlug, hotspotsQuery.data, mapCenter.latitude, mapCenter.longitude]);
+  const allPois = useMemo(() => {
+    if (!isBackendEnabled) return demoPois;
+    if (!backendPois.length) return hotspotPois;
+    const knownNames = new Set(backendPois.map((poi) => poi.name.trim().toLowerCase()));
+    const extraHotspots = hotspotPois.filter(
+      (hotspot) => !knownNames.has(hotspot.name.trim().toLowerCase()),
+    );
+    return [...backendPois, ...extraHotspots];
+  }, [backendPois, hotspotPois]);
   const visiblePois = useMemo(
     () => allPois.filter((poi) => matchesFilter(poi, filter)),
     [allPois, filter],
@@ -138,16 +168,12 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
     [visiblePois],
   );
   const mapRegion = useMemo(
-    () =>
-      activeArea
-        ? {
-            latitude: Number(activeArea.center_lat),
-            longitude: Number(activeArea.center_lng),
-            latitudeDelta: 0.12,
-            longitudeDelta: 0.12,
-          }
-        : { ...SAINT_BRIEUC_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 },
-    [activeArea],
+    () => ({
+      ...mapCenter,
+      latitudeDelta: 0.12,
+      longitudeDelta: 0.12,
+    }),
+    [mapCenter],
   );
 
   useEffect(() => {
@@ -201,16 +227,15 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
     const result = await requestApproximateLocation();
     if (result.status === 'denied') {
       setLocationConsent('denied');
-      if (Platform.OS === 'web') {
-        setCity('Saint-Brieuc');
-        setApproximateLocation({ ...simulatedSaintBrieucLocation(), updatedAt: Date.now() });
-      }
+      setApproximateLocation(undefined);
       Alert.alert(
         'Position non activée',
-        'La carte reste centrée sur Saint-Brieuc sans exposer ta position exacte.',
+        `La carte reste centrée sur ${city} sans exposer ta position exacte.`,
       );
       return;
     }
+    const previousConsent = locationConsent;
+    const previousLocation = approximateLocation;
     const next = {
       latitude: result.latitude,
       longitude: result.longitude,
@@ -219,7 +244,19 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
     };
     setLocationConsent('granted');
     setApproximateLocation(next);
-    if (isBackendEnabled && Platform.OS !== 'web') await savePrivateLocation(next);
+    if (isBackendEnabled && Platform.OS !== 'web') {
+      try {
+        await savePrivateLocation(next);
+      } catch {
+        setLocationConsent(previousConsent);
+        setApproximateLocation(previousLocation);
+        Alert.alert(
+          'Position non enregistrée',
+          'Impossible d’enregistrer ta zone privée pour le moment. Réessaie.',
+        );
+        return;
+      }
+    }
     Alert.alert(
       'Position approximative activée',
       'Elle reste privée et sert uniquement à améliorer ta zone.',
@@ -228,41 +265,82 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
 
   const chooseCity = () => {
     const names = launchAreasQuery.data?.map((area) => area.name) ?? [city];
-    const selectCity = (name: string) => {
+    const selectCity = async (name: string) => {
+      const previousCity = city;
       const area = launchAreasQuery.data?.find((item) => item.name === name);
       setCity(name);
-      if (isBackendEnabled) void setBackendCity(name, area?.slug);
+      if (!isBackendEnabled) return;
+      try {
+        await setBackendCity(name, area?.slug ?? toCitySlug(name));
+      } catch {
+        setCity(previousCity);
+        Alert.alert(
+          'Ville non enregistrée',
+          'Impossible de mettre à jour ta ville côté serveur. Réessaie.',
+        );
+      }
     };
     Alert.alert('Choisir ma ville', 'La ville filtre les profils et les sorties partagées.', [
-      ...names.map((name) => ({ text: name, onPress: () => selectCity(name) })),
+      ...names.map((name) => ({ text: name, onPress: () => void selectCity(name) })),
       { text: 'Annuler', onPress: () => undefined },
     ]);
   };
 
   const toggleVisibility = async () => {
-    const next = !mapVisible;
+    const previous = mapVisible;
+    const next = !previous;
     setMapVisible(next);
-    if (isBackendEnabled) await setBackendMapVisibility(next);
-    await queryClient.invalidateQueries({ queryKey: ['backend-hotspots', citySlug] });
+    if (isBackendEnabled) {
+      try {
+        await setBackendMapVisibility(next);
+        await queryClient.invalidateQueries({ queryKey: ['backend-hotspots', citySlug] });
+      } catch {
+        setMapVisible(previous);
+        Alert.alert(
+          'Visibilité inchangée',
+          'Impossible d’enregistrer ce réglage sur le serveur. Réessaie.',
+        );
+      }
+    }
   };
 
   const clearPrivateLocation = async () => {
+    const previousConsent = locationConsent;
+    const previousLocation = approximateLocation;
     setLocationConsent('unknown');
     setApproximateLocation(undefined);
-    if (isBackendEnabled) await deletePrivateLocation();
+    if (isBackendEnabled) {
+      try {
+        await deletePrivateLocation();
+      } catch {
+        setLocationConsent(previousConsent);
+        setApproximateLocation(previousLocation);
+        Alert.alert(
+          'Suppression impossible',
+          'Ta position privée n’a pas pu être supprimée côté serveur.',
+        );
+        return;
+      }
+    }
     Alert.alert('Position supprimée', 'TÉCAP utilise désormais ta ville manuelle.');
   };
 
   const openPoiAction = (poi: TecapPoi) => {
     setSelectedPoi(null);
     if (poi.action === 'event') navigation.navigate('Night');
-    else if (poi.action === 'invite') navigation.navigate('Invitation');
+    else if (poi.action === 'invite') goToDiscover(navigation, 'Invitation');
     else
       navigation.navigate('VenueDetail', {
         venue: poi.name,
         count: poi.participantCount,
         kind: categoryLabels[poi.category],
       });
+  };
+
+  const backendError = isBackendEnabled && (poisQuery.isError || hotspotsQuery.isError);
+  const retryBackendQueries = () => {
+    void poisQuery.refetch();
+    void hotspotsQuery.refetch();
   };
 
   return (
@@ -294,7 +372,9 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
           </Text>
         </View>
         <View style={styles.peopleBadge}>
-          <Text style={styles.peopleCount}>{activePeople || 26}</Text>
+          <Text style={styles.peopleCount}>
+            {isBackendEnabled && poisQuery.isLoading && !allPois.length ? '…' : activePeople}
+          </Text>
           <Text style={styles.peopleLabel}>plans partagés</Text>
         </View>
       </View>
@@ -315,6 +395,19 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
           </Pressable>
         ))}
       </ScrollView>
+      {backendError && (
+        <View style={styles.errorCard} accessibilityRole='alert'>
+          <View style={styles.errorCopy}>
+            <Text style={styles.errorTitle}>Lieux indisponibles pour le moment</Text>
+            <Text style={styles.errorBody}>
+              Impossible de charger les points d’intérêt ou les zones actives depuis le serveur.
+            </Text>
+          </View>
+          <Pressable onPress={retryBackendQueries} style={styles.retryButton}>
+            <Text style={styles.retryButtonText}>Réessayer</Text>
+          </Pressable>
+        </View>
+      )}
       <MapCanvas
         initialRegion={mapRegion}
         markers={visiblePois as MapMarker[]}
@@ -433,7 +526,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.canvas,
     padding: spacing.lg,
     paddingTop: 28,
-    paddingBottom: 34,
+    paddingBottom: 112,
   },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: {
@@ -444,7 +537,6 @@ const styles = StyleSheet.create({
   },
   brandHeader: { alignItems: 'center', gap: 2 },
   context: { color: colors.goldLight, fontSize: 7, letterSpacing: 1.2, fontWeight: '900' },
-  more: { color: colors.text, fontSize: 16 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 22, marginBottom: 14 },
   titleCopy: { flex: 1, paddingRight: 10 },
   kickerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -483,6 +575,29 @@ const styles = StyleSheet.create({
   filterActive: { borderColor: colors.hotPink, backgroundColor: colors.pinkWash, ...glow.pink },
   filterText: { color: colors.mutedStrong, fontSize: 10, fontWeight: '700' },
   filterTextActive: { color: colors.text, fontWeight: '900' },
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    backgroundColor: colors.surface,
+  },
+  errorCopy: { flex: 1 },
+  errorTitle: { color: colors.text, fontSize: 11, fontWeight: '900' },
+  errorBody: { color: colors.mutedStrong, fontSize: 10, lineHeight: 14, marginTop: 2 },
+  retryButton: {
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.pink,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: colors.pinkWash,
+  },
+  retryButtonText: { color: colors.text, fontSize: 10, fontWeight: '900' },
   mapActions: { gap: 8, marginTop: 10 },
   primaryAction: {
     flexDirection: 'row',
@@ -533,7 +648,6 @@ const styles = StyleSheet.create({
     marginRight: 11,
   },
   sheetIconGold: { backgroundColor: colors.goldHot },
-  sheetIconText: { color: colors.text, fontSize: 21, fontWeight: '900' },
   sheetCopy: { flex: 1 },
   sheetCategory: { color: colors.goldLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   sheetTitle: { color: colors.text, fontSize: 17, fontWeight: '900', marginTop: 2 },

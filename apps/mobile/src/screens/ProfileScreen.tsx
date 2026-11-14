@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -9,12 +10,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { colors, radius, spacing } from '../theme';
 import { useAppStore } from '../state/useAppStore';
 import { supabase } from '../lib/supabase';
 import { isBackendEnabled } from '../lib/runtime';
 import { BrandLogo } from '../components/BrandLogo';
 import { requestPushPermissionAndRegister, triggerDemoNotification } from '../lib/notifications';
+import { goToOutings } from '../navigation/routes';
 
 type Navigation = { navigate: (screen: string, params?: unknown) => void };
 type Profile = {
@@ -25,6 +28,7 @@ type Profile = {
   discover_visible: boolean;
   birth_date: string;
   gender: string | null;
+  avatar_path: string | null;
 };
 type EditableField = 'first_name' | 'city' | 'bio' | 'seeking';
 const labels: Record<EditableField, string> = {
@@ -33,6 +37,9 @@ const labels: Record<EditableField, string> = {
   bio: 'Présentation',
   seeking: 'Genre / préférence de rencontre',
 };
+
+const PROFILE_SELECT =
+  'first_name, city, bio, seeking, discover_visible, birth_date, gender, avatar_path';
 
 function seekingLabel(value: string) {
   if (value === 'men' || value === 'hommes') return 'Hommes';
@@ -49,6 +56,7 @@ function genderLabel(value: string) {
 }
 
 export function ProfileScreen({ navigation }: { navigation: Navigation }) {
+  const queryClient = useQueryClient();
   const demoName = useAppStore((s) => s.profileFirstName);
   const demoCity = useAppStore((s) => s.city);
   const demoBio = useAppStore((s) => s.profileBio);
@@ -60,43 +68,39 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
   const setAuthenticated = useAppStore((s) => s.setAuthenticated);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(isBackendEnabled);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<EditableField | null>(null);
   const [draft, setDraft] = useState('');
   const [discoverVisible, setDiscoverVisible] = useState(demoVisible);
   const [visibilityBusy, setVisibilityBusy] = useState(false);
 
+  const loadBackendProfile = useCallback(async () => {
+    if (!isBackendEnabled) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError || !auth.user) throw authError ?? new Error('Session absente.');
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(PROFILE_SELECT)
+        .eq('id', auth.user.id)
+        .single();
+      if (error) throw error;
+      setProfile(data as Profile);
+      setDiscoverVisible(data.discover_visible);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Profil indisponible.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isBackendEnabled) return;
-    let active = true;
-    (async () => {
-      try {
-        const { data: auth, error: authError } = await supabase.auth.getUser();
-        if (authError || !auth.user) throw authError ?? new Error('Session absente.');
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('first_name, city, bio, seeking, discover_visible, birth_date, gender')
-          .eq('id', auth.user.id)
-          .single();
-        if (error) throw error;
-        if (active) {
-          setProfile(data as Profile);
-          setDiscoverVisible(data.discover_visible);
-        }
-      } catch (error) {
-        if (active)
-          Alert.alert(
-            'Profil indisponible',
-            error instanceof Error ? error.message : 'Réessaie plus tard.',
-          );
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+    void loadBackendProfile();
+  }, [loadBackendProfile]);
 
   const values = isBackendEnabled
     ? {
@@ -175,10 +179,11 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
           .from('profiles')
           .update(updatePayload)
           .eq('id', auth.user.id)
-          .select('first_name, city, bio, seeking, discover_visible, birth_date, gender')
+          .select(PROFILE_SELECT)
           .single();
         if (error) throw error;
         setProfile(data as Profile);
+        void queryClient.invalidateQueries({ queryKey: ['discover-profiles'] });
       } else setValue(field, value);
       setEditing(null);
     } catch (error) {
@@ -205,11 +210,13 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
         .from('profiles')
         .update({ discover_visible: next })
         .eq('id', auth.user.id)
-        .select('first_name, city, bio, seeking, discover_visible, birth_date, gender')
+        .select(PROFILE_SELECT)
         .single();
       if (error) throw error;
       setProfile(data as Profile);
       setDiscoverVisible(data.discover_visible);
+      void queryClient.invalidateQueries({ queryKey: ['discover-profiles'] });
+      void queryClient.invalidateQueries({ queryKey: ['backend-hotspots'] });
     } catch (error) {
       Alert.alert(
         'Visibilité non modifiée',
@@ -245,6 +252,7 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
       <Pressable
         accessibilityRole='button'
         accessibilityLabel={`Modifier ${labels[field]}`}
+        disabled={isBackendEnabled && Boolean(loadError)}
         onPress={() => openEditor(field)}
         style={styles.editButton}
       >
@@ -264,11 +272,15 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
         <Text style={styles.more}>•••</Text>
       </View>
       <View style={styles.profile}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {(values.first_name || '?').slice(0, 1).toUpperCase()}
-          </Text>
-        </View>
+        {profile?.avatar_path ? (
+          <Image source={{ uri: profile.avatar_path }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {(values.first_name || '?').slice(0, 1).toUpperCase()}
+            </Text>
+          </View>
+        )}
         <Text style={styles.name}>
           {values.first_name || 'Ton prénom'}
           {age !== null ? `, ${age}` : ''}
@@ -281,6 +293,17 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
           {completion === 4 ? 'Profil complété' : `Profil incomplet · ${completion}/4 informations`}
         </Text>
       </View>
+      {isBackendEnabled && loadError && (
+        <View style={styles.errorCard} accessibilityRole='alert'>
+          <View style={styles.fieldCopy}>
+            <Text style={styles.cardTitle}>Profil indisponible</Text>
+            <Text style={styles.cardHint}>{loadError}</Text>
+          </View>
+          <Pressable onPress={() => void loadBackendProfile()} style={styles.editButton}>
+            <Text style={styles.editText}>Réessayer</Text>
+          </Pressable>
+        </View>
+      )}
       <View style={styles.card}>
         <View style={styles.cardHeading}>
           <Text style={styles.cardTitle}>Tes informations de rencontre</Text>
@@ -311,8 +334,8 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
       <Pressable
         accessibilityRole='switch'
         accessibilityState={{ checked: discoverVisible }}
-        disabled={visibilityBusy || loading}
-        onPress={changeVisibility}
+        disabled={visibilityBusy || loading || Boolean(loadError)}
+        onPress={() => void changeVisibility()}
         style={styles.visibilityCard}
       >
         <View style={styles.fieldCopy}>
@@ -350,7 +373,7 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
         </View>
         <Text style={styles.chevron}>›</Text>
       </Pressable>
-      <Pressable onPress={requestNotifications} style={styles.linkCard}>
+      <Pressable onPress={() => void requestNotifications()} style={styles.linkCard}>
         <Text style={styles.linkIcon}>◉</Text>
         <View style={styles.linkCopy}>
           <Text style={styles.linkTitle}>Notifications système</Text>
@@ -358,12 +381,7 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
         </View>
         <Text style={styles.chevron}>›</Text>
       </Pressable>
-      <Pressable
-        onPress={() =>
-          navigation.navigate('MainTabs', { screen: 'OutingsTab', params: { screen: 'Map' } })
-        }
-        style={styles.linkCard}
-      >
+      <Pressable onPress={() => goToOutings(navigation, 'Map')} style={styles.linkCard}>
         <Text style={styles.linkIcon}>⌖</Text>
         <View style={styles.linkCopy}>
           <Text style={styles.linkTitle}>Ma ville et la carte</Text>
@@ -373,15 +391,7 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
         </View>
         <Text style={styles.chevron}>›</Text>
       </Pressable>
-      <Pressable
-        onPress={() =>
-          navigation.navigate('MainTabs', {
-            screen: 'OutingsTab',
-            params: { screen: 'EveningStatus' },
-          })
-        }
-        style={styles.linkCard}
-      >
+      <Pressable onPress={() => goToOutings(navigation, 'EveningStatus')} style={styles.linkCard}>
         <Text style={styles.linkIcon}>◷</Text>
         <View style={styles.linkCopy}>
           <Text style={styles.linkTitle}>Mon statut du soir</Text>
@@ -413,7 +423,7 @@ export function ProfileScreen({ navigation }: { navigation: Navigation }) {
           </View>
         </View>
       )}
-      <Pressable onPress={logout} style={styles.logout}>
+      <Pressable onPress={() => void logout()} style={styles.logout}>
         <Text style={styles.logoutText}>Se déconnecter</Text>
       </Pressable>
       <Pressable
@@ -512,6 +522,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarImage: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 2,
+    borderColor: colors.pink,
+  },
   avatarText: { color: colors.text, fontSize: 30, fontWeight: '800' },
   name: { color: colors.text, fontSize: 22, fontWeight: '800', marginTop: 12 },
   location: { color: colors.muted, fontSize: 12, marginTop: 5 },
@@ -525,6 +542,17 @@ const styles = StyleSheet.create({
   },
   progressFill: { height: 5, backgroundColor: colors.gold, borderRadius: 4 },
   completion: { color: colors.gold, fontSize: 10, fontWeight: '800', marginTop: 7 },
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,

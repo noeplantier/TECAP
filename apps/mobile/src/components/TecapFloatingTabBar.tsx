@@ -73,7 +73,7 @@ export function TecapFloatingTabBar({
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_unread_message_count');
       if (error) throw error;
-      return data ?? 0;
+      return Number(data ?? 0);
     },
     enabled: isBackendEnabled,
     staleTime: 15_000,
@@ -191,7 +191,12 @@ function DiscoverEyeIcon({
 
   return (
     <Animated.View style={animatedStyle}>
-      <NeonIcon name='eye-outline' size={20} color={color} tone={active ? 'pink' : 'none'} />
+      <NeonIcon
+        name={active ? 'eye' : 'eye-outline'}
+        size={20}
+        color={color}
+        tone={active ? 'pink' : 'none'}
+      />
     </Animated.View>
   );
 }

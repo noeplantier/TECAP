@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BrandLogo } from '../components/BrandLogo';
 import { NeonIcon } from '../components/NeonIcon';
@@ -13,7 +23,13 @@ import {
   setBackendCity,
   setBackendMapVisibility,
 } from '../lib/backend';
-import { demoPois, categoryLabels, SAINT_BRIEUC_CENTER, type TecapPoi } from '../lib/mapData';
+import {
+  demoPois,
+  categoryLabels,
+  poiPhotoForCategory,
+  SAINT_BRIEUC_CENTER,
+  type TecapPoi,
+} from '../lib/mapData';
 import { isBackendEnabled } from '../lib/runtime';
 import { requestApproximateLocation } from '../lib/geolocation';
 import { goToDiscover } from '../navigation/routes';
@@ -55,6 +71,10 @@ function backendPoiToTecap(
   poi: NonNullable<Awaited<ReturnType<typeof fetchBackendPointsOfInterest>>[number]>,
   cityNameBySlug: Map<string, string>,
 ): TecapPoi {
+  const media = poi as typeof poi & {
+    photo_url?: string | null;
+    image_url?: string | null;
+  };
   return {
     id: poi.id,
     category: poi.category,
@@ -73,6 +93,7 @@ function backendPoiToTecap(
     isPremium: poi.is_premium,
     startsAt: poi.starts_at ?? undefined,
     action: poi.action,
+    photoUrl: media.photo_url ?? media.image_url ?? poiPhotoForCategory(poi.category),
   };
 }
 
@@ -429,51 +450,100 @@ export function MapScreen({ navigation }: { navigation: Navigation }) {
           <Text style={styles.secondaryActionText}>QUI SORT CE SOIR ?</Text>
         </Pressable>
       </View>
-      {selectedPoi && (
-        <View
-          style={[
-            styles.bottomSheet,
-            selectedPoi.accent === 'gold' ? styles.bottomSheetGold : styles.bottomSheetPink,
-          ]}
-        >
-          <View style={styles.sheetHandle} />
-          <View style={styles.sheetHead}>
-            <View style={[styles.sheetIcon, selectedPoi.accent === 'gold' && styles.sheetIconGold]}>
-              <NeonIcon
-                name='location'
-                size={22}
-                tone={selectedPoi.accent === 'gold' ? 'gold' : 'pink'}
-                color={colors.text}
-              />
+      <Modal
+        visible={selectedPoi !== null}
+        transparent
+        animationType='slide'
+        onRequestClose={() => setSelectedPoi(null)}
+      >
+        {selectedPoi && (
+          <View style={styles.modalRoot}>
+            <Pressable
+              style={StyleSheet.absoluteFillObject}
+              onPress={() => setSelectedPoi(null)}
+              accessibilityRole='button'
+              accessibilityLabel='Fermer la fiche du lieu'
+            />
+            <View
+              style={[
+                styles.poiSheet,
+                selectedPoi.accent === 'gold' ? styles.poiSheetGold : styles.poiSheetPink,
+              ]}
+            >
+              <View style={styles.sheetHandle} />
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.poiSheetContent}
+              >
+                <View style={styles.poiPhotoWrap}>
+                  <Image
+                    source={{
+                      uri: selectedPoi.photoUrl ?? poiPhotoForCategory(selectedPoi.category),
+                    }}
+                    style={styles.poiPhoto}
+                    resizeMode='cover'
+                    accessibilityLabel={`Photo de ${selectedPoi.name}`}
+                  />
+                  <View style={styles.poiPhotoHeader}>
+                    <Text style={styles.poiCategoryPill}>
+                      {categoryLabels[selectedPoi.category]}
+                    </Text>
+                    <Pressable
+                      onPress={() => setSelectedPoi(null)}
+                      style={styles.closeButton}
+                      accessibilityRole='button'
+                      accessibilityLabel='Fermer'
+                    >
+                      <Text style={styles.close}>×</Text>
+                    </Pressable>
+                  </View>
+                  <View style={styles.poiPhotoFooter}>
+                    <NeonIcon name='people-outline' size={15} tone='gold' />
+                    <Text style={styles.poiPhotoCount}>
+                      {selectedPoi.participantCount}{' '}
+                      {selectedPoi.participantCount > 1 ? 'personnes' : 'personne'} ce soir
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.poiInfoHeader}>
+                  <Text style={styles.sheetTitle}>{selectedPoi.name}</Text>
+                  <Text style={styles.sheetSubtitle}>{selectedPoi.subtitle}</Text>
+                </View>
+                <View style={styles.poiFacts}>
+                  <Text style={styles.poiFact}>⌖ {selectedPoi.city}</Text>
+                  <Text style={styles.poiFact}>
+                    ♙ {selectedPoi.participantCount} plans partagés
+                  </Text>
+                  {selectedPoi.startsAt && (
+                    <Text style={styles.poiFact}>◷ {selectedPoi.startsAt}</Text>
+                  )}
+                </View>
+                <Text style={styles.sheetDescription}>{selectedPoi.description}</Text>
+                {selectedPoi.category === 'hotspot' && (
+                  <Text style={styles.poiPrivacyNote}>
+                    Zone agrégée : aucune position individuelle n’est affichée.
+                  </Text>
+                )}
+                <Pressable
+                  onPress={() => openPoiAction(selectedPoi)}
+                  style={[
+                    styles.sheetCta,
+                    selectedPoi.accent === 'gold' ? styles.sheetCtaGold : styles.sheetCtaPink,
+                  ]}
+                >
+                  <Text style={styles.sheetCtaText}>
+                    {selectedPoi.action === 'event'
+                      ? 'Voir l’événement'
+                      : selectedPoi.action === 'invite'
+                        ? 'Proposer de se capter'
+                        : 'Voir qui sort'}
+                  </Text>
+                </Pressable>
+              </ScrollView>
             </View>
-            <View style={styles.sheetCopy}>
-              <Text style={styles.sheetCategory}>{categoryLabels[selectedPoi.category]}</Text>
-              <Text style={styles.sheetTitle}>{selectedPoi.name}</Text>
-              <Text style={styles.sheetSubtitle}>{selectedPoi.subtitle}</Text>
-            </View>
-            <Pressable onPress={() => setSelectedPoi(null)}>
-              <Text style={styles.close}>×</Text>
-            </Pressable>
           </View>
-          <Text style={styles.sheetDescription}>{selectedPoi.description}</Text>
-          {selectedPoi.startsAt && <Text style={styles.sheetTime}>◷ {selectedPoi.startsAt}</Text>}
-          <Pressable
-            onPress={() => openPoiAction(selectedPoi)}
-            style={[
-              styles.sheetCta,
-              selectedPoi.accent === 'gold' ? styles.sheetCtaGold : styles.sheetCtaPink,
-            ]}
-          >
-            <Text style={styles.sheetCtaText}>
-              {selectedPoi.action === 'event'
-                ? 'Voir l’événement'
-                : selectedPoi.action === 'invite'
-                  ? 'Proposer de se capter'
-                  : 'Voir qui sort'}
-            </Text>
-          </Pressable>
-        </View>
-      )}
+        )}
+      </Modal>
       <View style={styles.privacyCard}>
         <View style={styles.privacyCopy}>
           <Text style={styles.privacyTitle}>Visibilité volontaire uniquement</Text>
@@ -626,9 +696,93 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.7,
   },
-  bottomSheet: { borderRadius: radius.lg, borderWidth: 1, padding: 15, marginTop: 12 },
-  bottomSheetPink: { borderColor: colors.hotPink, backgroundColor: colors.pinkWash, ...glow.pink },
-  bottomSheetGold: { borderColor: colors.goldHot, backgroundColor: colors.goldWash, ...glow.gold },
+  modalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.72)',
+  },
+  poiSheet: {
+    width: '100%',
+    maxWidth: 560,
+    maxHeight: '89%',
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    padding: 14,
+    backgroundColor: colors.surface,
+  },
+  poiSheetPink: { borderColor: colors.hotPink, ...glow.pink },
+  poiSheetGold: { borderColor: colors.goldHot, ...glow.gold },
+  poiSheetContent: { paddingBottom: 4 },
+  poiPhotoWrap: {
+    height: 174,
+    borderRadius: 15,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: colors.surfaceStrong,
+  },
+  poiPhoto: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: '100%',
+    height: '100%',
+  },
+  poiPhotoHeader: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    right: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  poiCategoryPill: {
+    color: colors.text,
+    backgroundColor: 'rgba(7,7,7,0.82)',
+    borderColor: colors.goldSoft,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  closeButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(7,7,7,0.82)',
+    borderColor: colors.lineBright,
+    borderWidth: 1,
+  },
+  poiPhotoFooter: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(7,7,7,0.84)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  poiPhotoCount: { color: colors.text, fontSize: 11, fontWeight: '900' },
+  poiInfoHeader: { marginTop: 13 },
+  poiFacts: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 11 },
+  poiFact: {
+    color: colors.mutedStrong,
+    fontSize: 10,
+    fontWeight: '700',
+    backgroundColor: colors.surfaceSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
   sheetHandle: {
     alignSelf: 'center',
     width: 42,
@@ -637,24 +791,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.muted,
     marginBottom: 12,
   },
-  sheetHead: { flexDirection: 'row', alignItems: 'center' },
-  sheetIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.pinkElectric,
-    marginRight: 11,
-  },
-  sheetIconGold: { backgroundColor: colors.goldHot },
-  sheetCopy: { flex: 1 },
-  sheetCategory: { color: colors.goldLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   sheetTitle: { color: colors.text, fontSize: 17, fontWeight: '900', marginTop: 2 },
   sheetSubtitle: { color: colors.mutedStrong, fontSize: 10, marginTop: 3 },
   close: { color: colors.text, fontSize: 26, paddingLeft: 8 },
   sheetDescription: { color: colors.mutedStrong, fontSize: 11, lineHeight: 16, marginTop: 12 },
-  sheetTime: { color: colors.goldLight, fontSize: 11, fontWeight: '800', marginTop: 8 },
+  poiPrivacyNote: { color: colors.goldLight, fontSize: 10, lineHeight: 15, marginTop: 9 },
   sheetCta: { alignItems: 'center', borderRadius: radius.pill, paddingVertical: 13, marginTop: 13 },
   sheetCtaPink: { backgroundColor: colors.pinkElectric },
   sheetCtaGold: { backgroundColor: colors.goldHot },

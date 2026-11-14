@@ -29,7 +29,12 @@
         }
       ],
       "expo-barcode-scanner",
-      "expo-image-picker"
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "TÉCAP accède à ta photothèque uniquement quand tu choisis ta photo de profil."
+        }
+      ]
     ],
     "extra": {
       "eas": { "projectId": "replace-with-eas-project-id" }

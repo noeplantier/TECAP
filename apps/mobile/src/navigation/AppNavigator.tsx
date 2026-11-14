@@ -53,6 +53,7 @@ type DiscoverParamList = {
   Home: undefined;
   Match:
     | {
+        matchId?: string;
         profileId?: string;
         profileName?: string;
         profilePhoto?: string;
@@ -60,13 +61,21 @@ type DiscoverParamList = {
         status?: string;
       }
     | undefined;
-  Invitation: undefined;
+  Invitation:
+    | {
+        matchId?: string;
+        profileId?: string;
+        profileName?: string;
+        profilePhoto?: string;
+        venue?: string;
+      }
+    | undefined;
   ProfileDetail: { profileId?: string } | undefined;
 };
 type OutingsParamList = {
   OutingsHome: undefined;
   Map: undefined;
-  EveningStatus: undefined;
+  EveningStatus: { venue?: string } | undefined;
   Night: undefined;
   Pass: undefined;
   Friends: undefined;
@@ -76,7 +85,7 @@ type OutingsParamList = {
 };
 type MessagesParamList = {
   MessagesHome: undefined;
-  Conversation: { matchId: string };
+  Conversation: { matchId?: string } | undefined;
   IncomingRequest: { requestId?: string } | undefined;
 };
 type ProfileParamList = {

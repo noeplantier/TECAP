@@ -199,7 +199,14 @@ async function remoteMatchesFor(userId: string) {
   ]);
   if (asFirst.error) throw asFirst.error;
   if (asSecond.error) throw asSecond.error;
-  return [...(asFirst.data ?? []), ...(asSecond.data ?? [])];
+  const seen = new Set<string>();
+  const combined: Tables<'matches'>[] = [];
+  for (const match of [...(asFirst.data ?? []), ...(asSecond.data ?? [])]) {
+    if (seen.has(match.id)) continue;
+    seen.add(match.id);
+    combined.push(match);
+  }
+  return combined;
 }
 
 export async function recordBackendSwipe(profileId: string, direction: 'like' | 'pass') {
@@ -221,7 +228,12 @@ export async function recordBackendSwipe(profileId: string, direction: 'like' | 
       })
       .catch(() => undefined);
   }
-  return { allowed: result.allowed === true, matched: result.matched === true };
+  return {
+    allowed: result.allowed === true,
+    matched: result.matched === true,
+    reason: result.reason,
+    matchId: result.match_id ?? undefined,
+  };
 }
 
 export async function fetchBackendMatches(): Promise<BackendMatchSummary[]> {
@@ -274,7 +286,12 @@ export async function fetchBackendConversation(matchId: string): Promise<Backend
   const [{ data: profiles, error: profileError }, { data: messages, error: messagesError }] =
     await Promise.all([
       supabase.rpc('get_match_profiles', { p_match_ids: [matchId] }),
-      supabase.from('messages').select('*').eq('match_id', matchId).order('created_at'),
+      supabase
+        .from('messages')
+        .select('*')
+        .eq('match_id', matchId)
+        .order('created_at', { ascending: false })
+        .limit(100),
     ]);
   if (profileError) throw profileError;
   if (messagesError) throw messagesError;
@@ -287,12 +304,15 @@ export async function fetchBackendConversation(matchId: string): Promise<Backend
   return {
     id: matchId,
     profile: matchProfileToDemo(profile),
-    messages: (messages ?? []).map((message) => ({
-      id: message.id,
-      text: message.body,
-      createdAt: message.created_at,
-      senderId: message.sender_id,
-    })),
+    messages: (messages ?? [])
+      .slice()
+      .reverse()
+      .map((message) => ({
+        id: message.id,
+        text: message.body,
+        createdAt: message.created_at,
+        senderId: message.sender_id,
+      })),
   };
 }
 

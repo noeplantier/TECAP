@@ -7,6 +7,13 @@ import { useAppStore } from '../state/useAppStore';
 import { colors, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
 
+function isValidEmail(value: string) {
+  const trimmed = value.trim();
+  const atIndex = trimmed.indexOf('@');
+  const dotIndex = trimmed.lastIndexOf('.');
+  return atIndex > 0 && dotIndex > atIndex + 1 && dotIndex < trimmed.length - 1;
+}
+
 export function AuthScreen({
   navigation,
 }: { navigation?: { navigate: (screen: string) => void } } = {}) {
@@ -22,10 +29,13 @@ export function AuthScreen({
     if (!isBackendEnabled) return;
     let mounted = true;
     void supabase.auth.getSession().then(({ data }) => {
-      if (mounted && data.session) {
+      if (!mounted) return;
+      if (data.session) {
         void ensureBackendProfile().catch(() => undefined);
         setAccepted18Plus(true);
         setAuthenticated(true);
+      } else {
+        setAuthenticated(false);
       }
     });
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -33,6 +43,8 @@ export function AuthScreen({
         void ensureBackendProfile().catch(() => undefined);
         setAccepted18Plus(true);
         setAuthenticated(true);
+      } else {
+        setAuthenticated(false);
       }
     });
     return () => {
@@ -42,7 +54,8 @@ export function AuthScreen({
   }, [setAccepted18Plus, setAuthenticated]);
 
   const continueWithEmail = async () => {
-    if (!email.includes('@') || !accepted) {
+    const cleanEmail = email.trim();
+    if (!isValidEmail(cleanEmail) || !accepted) {
       Alert.alert(
         'Encore une étape',
         'Entre un email valide et confirme que tu as 18 ans ou plus.',
@@ -50,41 +63,64 @@ export function AuthScreen({
       return;
     }
     setLoading(true);
-    if (isBackendEnabled) {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: true },
-      });
+    try {
+      if (isBackendEnabled) {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: cleanEmail,
+          options: { shouldCreateUser: true },
+        });
+        if (error) {
+          Alert.alert('Connexion impossible', error.message);
+          return;
+        }
+        setEmail(cleanEmail);
+        setOtpSent(true);
+        Alert.alert('Code envoyé', 'Vérifie ta boîte mail pour continuer.');
+        return;
+      }
+      setAccepted18Plus(true);
+      setAuthenticated(true);
+    } catch (error) {
+      Alert.alert(
+        'Connexion impossible',
+        error instanceof Error ? error.message : 'Réessaie dans un instant.',
+      );
+    } finally {
       setLoading(false);
-      if (error) return Alert.alert('Connexion impossible', error.message);
-      setOtpSent(true);
-      Alert.alert('Code envoyé', 'Vérifie ta boîte mail pour continuer.');
-      return;
     }
-    setLoading(false);
-    setAuthenticated(true);
   };
 
   const verifyCode = async () => {
-    if (otp.trim().length < 6) {
+    const cleanEmail = email.trim();
+    const cleanOtp = otp.trim();
+    if (cleanOtp.length < 6) {
       Alert.alert('Code incomplet', 'Entre le code à 6 chiffres reçu par email.');
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({ email, token: otp.trim(), type: 'email' });
-    setLoading(false);
-    if (error) return Alert.alert('Code invalide', error.message);
     try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: cleanEmail,
+        token: cleanOtp,
+        type: 'email',
+      });
+      if (error) {
+        Alert.alert('Code invalide', error.message);
+        return;
+      }
       await ensureBackendProfile();
+      setAccepted18Plus(true);
+      setAuthenticated(true);
     } catch (profileError) {
-      return Alert.alert(
+      Alert.alert(
         'Profil non initialisé',
         profileError instanceof Error ? profileError.message : 'Réessaie dans un instant.',
       );
+    } finally {
+      setLoading(false);
     }
-    setAccepted18Plus(true);
-    setAuthenticated(true);
   };
+
   return (
     <View style={styles.container}>
       <BrandLogo size='large' showTagline />
@@ -99,19 +135,33 @@ export function AuthScreen({
         placeholderTextColor={colors.muted}
         value={email}
         onChangeText={setEmail}
+        editable={!loading && !otpSent}
         style={styles.input}
       />
       {otpSent && (
-        <TextInput
-          testID='otp-input'
-          autoCapitalize='none'
-          keyboardType='number-pad'
-          placeholder='Code à 6 chiffres'
-          placeholderTextColor={colors.muted}
-          value={otp}
-          onChangeText={setOtp}
-          style={[styles.input, styles.otpInput]}
-        />
+        <>
+          <TextInput
+            testID='otp-input'
+            autoCapitalize='none'
+            keyboardType='number-pad'
+            placeholder='Code à 6 chiffres'
+            placeholderTextColor={colors.muted}
+            value={otp}
+            onChangeText={setOtp}
+            editable={!loading}
+            style={[styles.input, styles.otpInput]}
+          />
+          <Pressable
+            disabled={loading}
+            onPress={() => {
+              setOtp('');
+              setOtpSent(false);
+            }}
+            style={styles.resetEmail}
+          >
+            <Text style={styles.resetEmailText}>Modifier l’adresse email</Text>
+          </Pressable>
+        </>
       )}
       <Pressable
         onPress={() => setAccepted((value) => !value)}
@@ -126,7 +176,7 @@ export function AuthScreen({
       </Pressable>
       <Pressable
         disabled={loading}
-        onPress={otpSent ? verifyCode : continueWithEmail}
+        onPress={() => void (otpSent ? verifyCode() : continueWithEmail())}
         style={styles.button}
       >
         <Text style={styles.buttonText}>
@@ -144,6 +194,7 @@ export function AuthScreen({
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -171,6 +222,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   otpInput: { marginTop: 10, letterSpacing: 5, textAlign: 'center' },
+  resetEmail: { alignSelf: 'flex-end', paddingVertical: 8 },
+  resetEmailText: { color: colors.pink, fontSize: 11, fontWeight: '700' },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 20 },
   checkbox: { width: 22, height: 22, borderRadius: 7, borderWidth: 1, borderColor: colors.muted },
   checkboxOn: { backgroundColor: colors.ivory, borderColor: colors.ivory },

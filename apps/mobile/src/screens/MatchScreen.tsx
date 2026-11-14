@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -11,13 +12,17 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { demoPhotos, demoProfiles } from '../lib/demo';
+import { isBackendEnabled } from '../lib/runtime';
+import { supabase } from '../lib/supabase';
 import { goToMessages } from '../navigation/routes';
+import { useAppStore } from '../state/useAppStore';
 import { colors, glow, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
 import { NeonIcon, type NeonIconTone } from '../components/NeonIcon';
 
 type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 type MatchParams = {
+  matchId?: string;
   profileId?: string;
   profileName?: string;
   profilePhoto?: string;
@@ -38,11 +43,39 @@ const celebration = [
 ];
 
 export function MatchScreen({ navigation, route }: { navigation: Navigation; route?: MatchRoute }) {
-  const matched =
-    demoProfiles.find((profile) => profile.id === route?.params?.profileId) ?? demoProfiles[0]!;
-  const matchedName = route?.params?.profileName ?? matched.name;
-  const matchedPhoto = route?.params?.profilePhoto ?? matched.photo;
-  const venue = route?.params?.venue ?? matched.venue ?? 'Rennes centre';
+  const city = useAppStore((state) => state.city);
+  const demoName = useAppStore((state) => state.profileFirstName);
+  const selfProfileQuery = useQuery({
+    queryKey: ['match-self-profile'],
+    queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('first_name, avatar_path')
+        .eq('id', auth.user.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: isBackendEnabled,
+    staleTime: 5 * 60_000,
+  });
+
+  const demoMatched = isBackendEnabled
+    ? undefined
+    : (demoProfiles.find((profile) => profile.id === route?.params?.profileId) ?? demoProfiles[0]);
+  const matchedName = route?.params?.profileName ?? demoMatched?.name ?? 'Votre match';
+  const matchedPhoto = route?.params?.profilePhoto ?? demoMatched?.photo;
+  const selfPhoto = isBackendEnabled
+    ? (selfProfileQuery.data?.avatar_path ?? undefined)
+    : demoPhotos.alex;
+  const selfInitial = ((isBackendEnabled ? selfProfileQuery.data?.first_name : demoName) || 'T')
+    .slice(0, 1)
+    .toUpperCase();
+  const matchedInitial = matchedName.slice(0, 1).toUpperCase();
+  const venue = route?.params?.venue ?? demoMatched?.venue ?? city;
+  const matchId = route?.params?.matchId ?? (demoMatched ? `match-${demoMatched.id}` : undefined);
+
   const pulse = useSharedValue(0.86);
   const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
 
@@ -54,6 +87,14 @@ export function MatchScreen({ navigation, route }: { navigation: Navigation; rou
     );
     return () => cancelAnimation(pulse);
   }, [pulse]);
+
+  const openChat = () => {
+    if (matchId) {
+      goToMessages(navigation, 'Conversation', { matchId });
+    } else {
+      goToMessages(navigation);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -70,8 +111,20 @@ export function MatchScreen({ navigation, route }: { navigation: Navigation; rou
             <MatchSpark key={`${particle.icon}-${index}`} {...particle} index={index} />
           ))}
           <View style={styles.faces}>
-            <Image source={{ uri: demoPhotos.alex }} style={[styles.faceImage, styles.faceOne]} />
-            <Image source={{ uri: matchedPhoto }} style={[styles.faceImage, styles.faceTwo]} />
+            {selfPhoto ? (
+              <Image source={{ uri: selfPhoto }} style={[styles.faceImage, styles.faceOne]} />
+            ) : (
+              <View style={[styles.faceImage, styles.faceOne, styles.faceFallback]}>
+                <Text style={styles.faceInitial}>{selfInitial}</Text>
+              </View>
+            )}
+            {matchedPhoto ? (
+              <Image source={{ uri: matchedPhoto }} style={[styles.faceImage, styles.faceTwo]} />
+            ) : (
+              <View style={[styles.faceImage, styles.faceTwo, styles.faceFallback]}>
+                <Text style={styles.faceInitial}>{matchedInitial}</Text>
+              </View>
+            )}
             <Animated.View style={[styles.heartBadge, glow.pink, pulseStyle]}>
               <NeonIcon name='heart' size={25} color={colors.text} tone='pink' />
             </Animated.View>
@@ -92,7 +145,7 @@ export function MatchScreen({ navigation, route }: { navigation: Navigation; rou
           </Text>
         </View>
         <Pressable
-          onPress={() => goToMessages(navigation)}
+          onPress={openChat}
           style={({ pressed }) => [styles.primary, glow.gold, pressed && styles.pressed]}
           accessibilityRole='button'
         >
@@ -165,6 +218,12 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   faceImage: { width: 122, height: 122, borderRadius: 61, borderWidth: 3, position: 'absolute' },
+  faceFallback: {
+    backgroundColor: colors.surfaceStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  faceInitial: { color: colors.text, fontSize: 36, fontWeight: '900' },
   faceOne: { borderColor: colors.pinkLight, left: '18%' },
   faceTwo: { borderColor: colors.gold, right: '18%' },
   heartBadge: {

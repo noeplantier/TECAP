@@ -1,11 +1,27 @@
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
-import { fetchBackendEvents, fetchBackendProfiles, fetchBackendStatus } from '../lib/backend';
+import {
+  fetchBackendEvents,
+  fetchBackendLaunchAreas,
+  fetchBackendPointsOfInterest,
+  fetchBackendProfiles,
+  fetchBackendStatus,
+} from '../lib/backend';
 import { demoPhotos, demoProfiles, demoVenues } from '../lib/demo';
-import { demoPois, SAINT_BRIEUC_CENTER } from '../lib/mapData';
+import { demoPois, SAINT_BRIEUC_CENTER, type TecapPoi } from '../lib/mapData';
 import { MapCanvas } from '../components/MapCanvas';
 import { isBackendEnabled } from '../lib/runtime';
+import { goToDiscover, navigateToTab, TAB_ROUTES } from '../navigation/routes';
 import { useAppStore } from '../state/useAppStore';
 import { colors, radius, spacing } from '../theme';
 import { BrandLogo } from '../components/BrandLogo';
@@ -13,6 +29,18 @@ import { NeonIcon } from '../components/NeonIcon';
 
 type Navigation = { navigate: (screen: string, params?: unknown) => void; goBack?: () => void };
 type VenueItem = { name: string; count: number; type: string; emoji: string };
+
+function toCitySlug(name: string) {
+  return (
+    name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'saint-brieuc'
+  );
+}
+
 export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
   const isFocused = useIsFocused();
   const city = useAppStore((state) => state.city);
@@ -32,7 +60,63 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
     queryFn: fetchBackendEvents,
     enabled: isBackendEnabled,
   });
-  const displayStatus = isBackendEnabled ? remoteStatus.data : outingStatus;
+  const launchAreasQuery = useQuery({
+    queryKey: ['backend-launch-areas'],
+    queryFn: fetchBackendLaunchAreas,
+    enabled: isBackendEnabled,
+    staleTime: 10 * 60_000,
+  });
+  const activeArea =
+    launchAreasQuery.data?.find((area) => area.name === city) ?? launchAreasQuery.data?.[0];
+  const citySlug = activeArea?.slug ?? toCitySlug(city);
+  const poisQuery = useQuery({
+    queryKey: ['backend-points-of-interest', citySlug],
+    queryFn: () => fetchBackendPointsOfInterest(citySlug),
+    enabled: isBackendEnabled,
+    staleTime: 5 * 60_000,
+  });
+
+  const backendMarkers: TecapPoi[] = useMemo(
+    () =>
+      (poisQuery.data ?? []).map((poi) => ({
+        id: poi.id,
+        category: poi.category,
+        name: poi.name,
+        subtitle: poi.subtitle,
+        description: poi.description,
+        latitude: Number(poi.latitude),
+        longitude: Number(poi.longitude),
+        city,
+        citySlug: poi.city_slug,
+        participantCount: poi.participant_count,
+        accent: poi.accent,
+        icon: poi.icon,
+        isPremium: poi.is_premium,
+        startsAt: poi.starts_at ?? undefined,
+        action: poi.action,
+      })),
+    [city, poisQuery.data],
+  );
+  const mapRegion = useMemo(
+    () =>
+      activeArea
+        ? {
+            latitude: Number(activeArea.center_lat),
+            longitude: Number(activeArea.center_lng),
+            latitudeDelta: 0.12,
+            longitudeDelta: 0.12,
+          }
+        : { ...SAINT_BRIEUC_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 },
+    [activeArea],
+  );
+
+  const displayStatus = isBackendEnabled
+    ? remoteStatus.data && new Date(remoteStatus.data.expires_at).getTime() > Date.now()
+      ? remoteStatus.data
+      : null
+    : outingStatus && outingStatus.expiresAt > Date.now()
+      ? outingStatus
+      : null;
   const displayStatusLabel = isBackendEnabled
     ? remoteStatus.data?.status_type
     : outingStatus?.activityType;
@@ -77,8 +161,8 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
       {isFocused ? (
         <MapCanvas
           height={246}
-          initialRegion={{ ...SAINT_BRIEUC_CENTER, latitudeDelta: 0.12, longitudeDelta: 0.12 }}
-          markers={isBackendEnabled ? [] : demoPois}
+          initialRegion={mapRegion}
+          markers={isBackendEnabled ? backendMarkers : demoPois}
           onMarkerPress={() => navigation.navigate('Map')}
         />
       ) : (
@@ -92,6 +176,7 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
       </View>
     </View>
   );
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -101,7 +186,13 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
             ⌖ {city} · ce soir{isBackendEnabled ? '' : ' · mode démo'}
           </Text>
         </View>
-        <Text style={styles.info}>ⓘ</Text>
+        <Pressable
+          onPress={() => navigateToTab(navigation, TAB_ROUTES.profile, 'Safety')}
+          accessibilityRole='button'
+          accessibilityLabel='Sécurité et confidentialité'
+        >
+          <NeonIcon name='shield-checkmark-outline' size={22} tone='gold' />
+        </Pressable>
       </View>
       <Text style={styles.title}>Ce soir</Text>
       <Text style={styles.subtitle}>
@@ -133,17 +224,24 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
         <Text style={styles.section}>Qui sort ce soir ?</Text>
         <Text style={styles.peopleCount}>{peopleOutTonight.length}</Text>
       </View>
-      {peopleOutTonight.length ? (
+      {isBackendEnabled && remoteProfiles.isLoading && !peopleOutTonight.length ? (
+        <View style={styles.statusState}>
+          <ActivityIndicator size='small' color={colors.pink} />
+          <Text style={styles.peopleEmpty}>Chargement des sorties dans {city}…</Text>
+        </View>
+      ) : isBackendEnabled && remoteProfiles.isError && !peopleOutTonight.length ? (
+        <View style={styles.errorState} accessibilityRole='alert'>
+          <Text style={styles.errorTitle}>Sorties indisponibles pour le moment</Text>
+          <Pressable onPress={() => void remoteProfiles.refetch()} style={styles.retryButton}>
+            <Text style={styles.retryButtonText}>Réessayer</Text>
+          </Pressable>
+        </View>
+      ) : peopleOutTonight.length ? (
         peopleOutTonight.slice(0, 6).map((person) => (
           <Pressable
             key={person.id}
             style={styles.personRow}
-            onPress={() =>
-              navigation.navigate('DiscoverTab', {
-                screen: 'ProfileDetail',
-                params: { profileId: person.id },
-              })
-            }
+            onPress={() => goToDiscover(navigation, 'ProfileDetail', { profileId: person.id })}
           >
             <Image source={{ uri: person.photo }} style={styles.personPhoto} />
             <View style={styles.personCopy}>
@@ -168,10 +266,10 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
       )}
       <View style={styles.quickLinks}>
         <Pressable onPress={() => navigation.navigate('Friends')} style={styles.quickLink}>
-          <Text style={styles.quickLinkText}>♧ Amis</Text>
+          <Text style={styles.quickLinkText}>♧ Amis · Bientôt</Text>
         </Pressable>
         <Pressable onPress={() => navigation.navigate('Crew')} style={styles.quickLink}>
-          <Text style={styles.quickLinkText}>✧ Crew</Text>
+          <Text style={styles.quickLinkText}>✧ Crew · Bientôt</Text>
         </Pressable>
         <Pressable onPress={() => navigation.navigate('WhoLikedMe')} style={styles.quickLinkGold}>
           <Text style={styles.quickLinkTextGold}>♛ Likes</Text>
@@ -183,32 +281,38 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
           <Text style={styles.link}>Tout voir</Text>
         </Pressable>
       </View>
-      {venues.map((venue) => (
-        <Pressable
-          key={venue.name}
-          style={styles.venue}
-          onPress={() =>
-            navigation.navigate('VenueDetail', {
-              venue: venue.name,
-              count: venue.count,
-              kind: venue.type,
-            })
-          }
-        >
-          <View style={styles.venueIcon}>
-            <Text style={styles.venueIconText}>⌖</Text>
-          </View>
-          <View style={styles.venueCopy}>
-            <Text style={styles.venueName}>
-              {venue.name} {venue.emoji}
-            </Text>
-            <Text style={styles.venueMeta}>
-              {venue.count} personnes · {venue.type}
-            </Text>
-          </View>
-          <Text style={styles.chevron}>›</Text>
-        </Pressable>
-      ))}
+      {venues.length ? (
+        venues.map((venue) => (
+          <Pressable
+            key={venue.name}
+            style={styles.venue}
+            onPress={() =>
+              navigation.navigate('VenueDetail', {
+                venue: venue.name,
+                count: venue.count,
+                kind: venue.type,
+              })
+            }
+          >
+            <View style={styles.venueIcon}>
+              <Text style={styles.venueIconText}>⌖</Text>
+            </View>
+            <View style={styles.venueCopy}>
+              <Text style={styles.venueName}>
+                {venue.name} {venue.emoji}
+              </Text>
+              <Text style={styles.venueMeta}>
+                {venue.count} personnes · {venue.type}
+              </Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
+        ))
+      ) : (
+        <Text style={styles.peopleEmpty}>
+          Aucun lieu renseigné ce soir pour le moment. Ouvre la carte pour explorer la zone.
+        </Text>
+      )}
       <Pressable onPress={() => navigation.navigate('Night')} style={styles.event}>
         <Image source={{ uri: demoPhotos.night }} style={styles.eventImage} />
         <View style={styles.eventShade} />
@@ -233,17 +337,17 @@ export function EventsHubScreen({ navigation }: { navigation: Navigation }) {
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     backgroundColor: colors.canvas,
     padding: spacing.lg,
     paddingTop: 28,
-    paddingBottom: 30,
+    paddingBottom: 112,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   location: { color: colors.muted, fontSize: 10, marginTop: 6 },
-  info: { color: colors.text, fontSize: 22 },
   title: { color: colors.text, fontSize: 28, lineHeight: 34, fontWeight: '800', marginTop: 25 },
   subtitle: { color: colors.mutedStrong, fontSize: 13, lineHeight: 19, marginTop: 9 },
   statusCta: {
@@ -281,6 +385,35 @@ const styles = StyleSheet.create({
     marginBottom: 9,
   },
   peopleCount: { color: colors.muted, fontSize: 11 },
+  statusState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: 14,
+  },
+  errorState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderColor: colors.danger,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: 12,
+  },
+  errorTitle: { color: colors.text, fontSize: 11, fontWeight: '700', flex: 1 },
+  retryButton: {
+    borderColor: colors.pink,
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    backgroundColor: colors.pinkWash,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  retryButtonText: { color: colors.text, fontSize: 10, fontWeight: '900' },
   personRow: {
     minHeight: 72,
     flexDirection: 'row',
@@ -305,7 +438,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
   },
-  quickLinks: { flexDirection: 'row', gap: 7, marginBottom: 13 },
+  quickLinks: { flexDirection: 'row', gap: 7, marginTop: 10, marginBottom: 13 },
   quickLink: {
     flex: 1,
     alignItems: 'center',
@@ -321,11 +454,11 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
+    borderColor: colors.goldSoft,
+    backgroundColor: colors.goldWash,
   },
-  quickLinkText: { color: colors.pink, fontSize: 9, fontWeight: '700' },
-  quickLinkTextGold: { color: colors.pink, fontSize: 9, fontWeight: '700' },
+  quickLinkText: { color: colors.mutedStrong, fontSize: 9, fontWeight: '700' },
+  quickLinkTextGold: { color: colors.goldLight, fontSize: 9, fontWeight: '800' },
   mapCard: {
     backgroundColor: colors.surfaceStrong,
     borderColor: colors.pinkSoft,

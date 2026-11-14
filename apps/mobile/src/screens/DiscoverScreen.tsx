@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -13,7 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { DemoProfile } from '../lib/seedProfiles';
 import { demoProfiles } from '../lib/demo';
-import { fetchBackendProfiles, recordBackendSwipe } from '../lib/backend';
+import { fetchBackendEntitlements, fetchBackendProfiles, recordBackendSwipe } from '../lib/backend';
 import { isBackendEnabled } from '../lib/runtime';
 import { goToShop } from '../navigation/routes';
 import { useAppStore } from '../state/useAppStore';
@@ -28,8 +37,10 @@ type SwipeDirection = 'like' | 'pass';
 export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
   const { width, height } = useWindowDimensions();
   const swipeThreshold = Math.min(140, Math.max(72, width * 0.28));
+  const queryClient = useQueryClient();
   const [index, setIndex] = useState(0);
   const [swiping, setSwiping] = useState(false);
+  const [backendSwipedIds, setBackendSwipedIds] = useState<string[]>([]);
   const translateX = useSharedValue(0);
   const pendingProfileRef = useRef<DemoProfile | null>(null);
   const likedProfileIds = useAppStore((state) => state.likedProfileIds);
@@ -46,21 +57,34 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
     queryFn: () => fetchBackendProfiles(),
     enabled: isBackendEnabled,
   });
+  const entitlementsQuery = useQuery({
+    queryKey: ['backend-entitlements'],
+    queryFn: fetchBackendEntitlements,
+    enabled: isBackendEnabled,
+    staleTime: 60_000,
+  });
+  const isPremium = isBackendEnabled
+    ? (entitlementsQuery.data?.premium ?? false)
+    : subscription === 'premium';
   const sourceProfiles = isBackendEnabled ? (remoteProfiles.data ?? []) : demoProfiles;
 
-  const visibleProfiles = useMemo(
-    () =>
-      rankDiscoveryProfiles(
-        sourceProfiles.filter(
-          (profile) =>
-            !likedProfileIds.includes(profile.id) &&
-            !passedProfileIds.includes(profile.id) &&
-            !blockedProfileIds.includes(profile.id),
-        ),
-        { city, activityType: outingActivity },
-      ),
-    [blockedProfileIds, city, likedProfileIds, outingActivity, passedProfileIds, sourceProfiles],
-  );
+  const visibleProfiles = useMemo(() => {
+    const excludedIds = isBackendEnabled
+      ? new Set([...backendSwipedIds, ...blockedProfileIds])
+      : new Set([...likedProfileIds, ...passedProfileIds, ...blockedProfileIds]);
+    return rankDiscoveryProfiles(
+      sourceProfiles.filter((profile) => !excludedIds.has(profile.id)),
+      { city, activityType: outingActivity },
+    );
+  }, [
+    backendSwipedIds,
+    blockedProfileIds,
+    city,
+    likedProfileIds,
+    outingActivity,
+    passedProfileIds,
+    sourceProfiles,
+  ]);
   const current = visibleProfiles[index];
 
   useEffect(() => {
@@ -98,8 +122,9 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
         resetSwipe();
         return;
       }
-      const openMatch = () =>
+      const openMatch = (matchId?: string) =>
         navigation.navigate('Match', {
+          matchId,
           profileId: profile.id,
           profileName: profile.name,
           profilePhoto: profile.photo,
@@ -114,12 +139,14 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
             goToShop(navigation);
             return;
           }
-          if (direction === 'pass') passProfile(profile.id);
-          else likeProfile(profile.id, false);
+          setBackendSwipedIds((prev) => (prev.includes(profile.id) ? prev : [...prev, profile.id]));
           pendingProfileRef.current = null;
           setSwiping(false);
           translateX.value = 0;
-          if (result.matched) openMatch();
+          if (result.matched) {
+            void queryClient.invalidateQueries({ queryKey: ['backend-matches'] });
+            openMatch(result.matchId);
+          }
           return;
         }
 
@@ -136,7 +163,7 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
             pendingProfileRef.current = null;
             setSwiping(false);
             translateX.value = 0;
-            openMatch();
+            openMatch(`match-${profile.id}`);
             return;
           }
         }
@@ -152,7 +179,7 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
         );
       }
     },
-    [likeProfile, navigation, passProfile, resetSwipe, translateX],
+    [likeProfile, navigation, passProfile, queryClient, resetSwipe, translateX],
   );
 
   const swipe = useCallback(
@@ -208,21 +235,40 @@ export function DiscoverScreen({ navigation }: { navigation: Navigation }) {
       </View>
       <View style={styles.quotaRow}>
         <Text style={styles.quota}>
-          {subscription === 'premium'
+          {isPremium
             ? 'Likes illimités'
-            : `${likesRemaining} likes gratuits restants`}
+            : isBackendEnabled
+              ? 'Quota : 25 likes / 24 h'
+              : `${likesRemaining} likes gratuits restants`}
         </Text>
         <Pressable onPress={() => goToShop(navigation)} accessibilityRole='button'>
-          <Text style={styles.quotaLink}>
-            {subscription === 'premium' ? 'Premium actif' : 'Voir Premium'}
-          </Text>
+          <Text style={styles.quotaLink}>{isPremium ? 'Premium actif' : 'Voir Premium'}</Text>
         </Pressable>
       </View>
       <Pressable onPress={() => navigation.navigate('Invitation')} style={styles.eveningLink}>
         <Text style={styles.eveningLinkText}>T’as quoi de prévu ce soir ?</Text>
         <Text style={styles.eveningLinkArrow}>›</Text>
       </Pressable>
-      {current ? (
+      {isBackendEnabled && remoteProfiles.isLoading && !current ? (
+        <View style={styles.empty}>
+          <ActivityIndicator size='large' color={colors.pink} />
+          <Text style={styles.emptyTitle}>Chargement des profils…</Text>
+          <Text style={styles.emptyBody}>Recherche des membres compatibles autour de {city}.</Text>
+        </View>
+      ) : isBackendEnabled && remoteProfiles.isError && !current ? (
+        <View style={styles.empty} accessibilityRole='alert'>
+          <Text style={styles.emptyIcon}>!</Text>
+          <Text style={styles.emptyTitle}>Profils indisponibles</Text>
+          <Text style={styles.emptyBody}>
+            {remoteProfiles.error instanceof Error
+              ? remoteProfiles.error.message
+              : 'Impossible de charger les profils pour le moment.'}
+          </Text>
+          <Pressable onPress={() => void remoteProfiles.refetch()} style={styles.emptyButton}>
+            <Text style={styles.emptyButtonText}>Réessayer</Text>
+          </Pressable>
+        </View>
+      ) : current ? (
         <>
           <View style={styles.cardStage}>
             <GestureDetector gesture={panGesture}>

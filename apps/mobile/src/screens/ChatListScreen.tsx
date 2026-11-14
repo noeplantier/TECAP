@@ -1,4 +1,14 @@
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { BrandLogo } from '../components/BrandLogo';
 import { fetchBackendMatches } from '../lib/backend';
@@ -40,6 +50,14 @@ export function ChatListScreen({ navigation }: { navigation: Navigation }) {
     queryFn: fetchBackendMatches,
     enabled: isBackendEnabled,
   });
+  const refetchMatches = remoteMatches.refetch;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isBackendEnabled) void refetchMatches();
+    }, [refetchMatches]),
+  );
+
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -107,7 +125,25 @@ export function ChatListScreen({ navigation }: { navigation: Navigation }) {
         </Text>
       </View>
       <Text style={styles.title}>Tes conversations</Text>
-      {!hasMatches ? (
+      {isBackendEnabled && remoteMatches.isLoading && !hasMatches ? (
+        <View style={styles.empty}>
+          <ActivityIndicator size='large' color={colors.pink} />
+          <Text style={styles.emptyTitle}>Chargement des conversations…</Text>
+        </View>
+      ) : isBackendEnabled && remoteMatches.isError && !hasMatches ? (
+        <View style={styles.empty} accessibilityRole='alert'>
+          <Text style={styles.emptyIcon}>!</Text>
+          <Text style={styles.emptyTitle}>Conversations indisponibles</Text>
+          <Text style={styles.emptyBody}>
+            {remoteMatches.error instanceof Error
+              ? remoteMatches.error.message
+              : 'Impossible de récupérer tes matchs.'}
+          </Text>
+          <Pressable onPress={() => void remoteMatches.refetch()} style={styles.primary}>
+            <Text style={styles.primaryText}>Réessayer</Text>
+          </Pressable>
+        </View>
+      ) : !hasMatches ? (
         <View style={styles.empty}>
           <Text style={styles.emptyIcon}>⌁</Text>
           <Text style={styles.emptyTitle}>Pas encore de conversation</Text>
